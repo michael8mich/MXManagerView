@@ -13,6 +13,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import type { Lane, Model, OwnerRef, Problem } from '../model/types';
 import { isMoveAllowed } from '../model/rules';
 
@@ -20,7 +21,9 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
-function formatAgeFromMs(deltaMs: number): string {
+type TFn = (key: string, options?: Record<string, unknown>) => string;
+
+function formatAgeFromMs(t: TFn, deltaMs: number): string {
   const safeMs = Math.max(0, deltaMs);
   const totalMinutes = Math.floor(safeMs / (1000 * 60));
   const minutes = totalMinutes % 60;
@@ -35,15 +38,15 @@ function formatAgeFromMs(deltaMs: number): string {
   const days = daysAfterYears % 30;
 
   const parts: string[] = [];
-  if (years) parts.push(`${years}y`);
-  if (months) parts.push(`${months}mo`);
-  if (days) parts.push(`${days}d`);
-  parts.push(`${hours}h`);
-  parts.push(`${minutes}m`);
+  if (years) parts.push(t('duration.y', { count: years }));
+  if (months) parts.push(t('duration.mo', { count: months }));
+  if (days) parts.push(t('duration.d', { count: days }));
+  parts.push(t('duration.h', { count: hours }));
+  parts.push(t('duration.m', { count: minutes }));
   return parts.join(' ');
 }
 
-function formatOpenedInfo(problem: Problem): { openedLine: string; ageHoursLine: string } | null {
+function formatOpenedInfo(t: TFn, problem: Problem): { openedText: string; ageText: string } | null {
   const epoch = problem.openedAtEpochSeconds;
   const openedDate = typeof epoch === 'number' ? new Date(epoch * 1000) : null;
   if (!openedDate || Number.isNaN(openedDate.getTime())) return null;
@@ -51,10 +54,8 @@ function formatOpenedInfo(problem: Problem): { openedLine: string; ageHoursLine:
   const pad2 = (n: number) => String(n).padStart(2, '0');
   const openedText = `${pad2(openedDate.getDate())}/${pad2(openedDate.getMonth() + 1)}/${openedDate.getFullYear()} ${pad2(openedDate.getHours())}:${pad2(openedDate.getMinutes())}`;
 
-  const ageText = formatAgeFromMs(Date.now() - openedDate.getTime());
-  const openedLine = `Opened: ${openedText}`;
-  const ageHoursLine = `Age: ${ageText} since open`;
-  return { openedLine, ageHoursLine };
+  const ageText = formatAgeFromMs(t, Date.now() - openedDate.getTime());
+  return { openedText, ageText };
 }
 
 function priorityRank(priority: Problem['priority']) {
@@ -206,13 +207,15 @@ function LaneColumn({
     isDragging: boolean;
   };
 }) {
+  const { t } = useTranslation();
   const isTeamLane = lane.assigneeType === 'team';
   const isOver = isOverHeader || isOverBody;
   const palette = isTeamLane ? null : paletteForLane(lane);
+  const laneLabel = isTeamLane ? t('lane.teamQueueTitle', { team: lane.title }) : lane.title;
 
   return (
     <section
-      aria-label={lane.title}
+      aria-label={laneLabel}
       className={[
         'relative flex h-[72vh] flex-col overflow-hidden rounded-3xl border shadow-sm backdrop-blur-xl md:h-[78vh]',
         isTeamLane
@@ -248,7 +251,7 @@ function LaneColumn({
         ].join(' ')}
       >
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{lane.title}</div>
+          <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{laneLabel}</div>
           {isTeamLane ? (
             <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
               <span
@@ -257,10 +260,10 @@ function LaneColumn({
                   chipTone('type', lane.assigneeType)
                 ].join(' ')}
               >
-                {lane.assigneeType}
+                {t('lane.type.team')}
               </span>
               <span className="text-slate-400">•</span>
-              <span className="text-slate-600 dark:text-slate-300">{problems.length} items</span>
+              <span className="text-slate-600 dark:text-slate-300">{t('lane.itemsCount', { count: problems.length })}</span>
             </div>
           ) : null}
         </div>
@@ -275,11 +278,11 @@ function LaneColumn({
                 'dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10',
                 moveAllHandle.isDragging ? 'opacity-60' : ''
               ].join(' ')}
-              title="Drag to move ALL problems in this lane"
+              title={t('lane.moveAllTitle')}
               {...moveAllHandle.listeners}
               {...moveAllHandle.attributes}
             >
-              Move all
+              {t('lane.moveAll')}
             </button>
           ) : null}
 
@@ -297,7 +300,7 @@ function LaneColumn({
         ].join(' ')}
       >
         <div className="shrink-0 rounded-2xl border border-slate-200/70 bg-white/50 px-3 py-2 text-xs text-slate-600 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
-          Drop on header or here
+          {t('lane.dropHint')}
         </div>
         {problems.map((p) => (
           <ProblemCard key={p.id} problem={p} />
@@ -345,6 +348,7 @@ function DroppableLane({ lane, problems }: { lane: Lane; problems: Problem[] }) 
 }
 
 function ProblemCard({ problem }: { problem: Problem }) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: problem.id
   });
@@ -379,16 +383,17 @@ function ProblemCard({ problem }: { problem: Problem }) {
   }
 
   function openTooltip(anchorEl: HTMLElement) {
-    const description = problem.description && problem.description.trim().length ? problem.description : 'No description';
-    const openedInfo = formatOpenedInfo(problem);
+    const description =
+      problem.description && problem.description.trim().length ? problem.description : t('tooltip.noDescription');
+    const openedInfo = formatOpenedInfo(t, problem);
 
     setTooltip({
       open: true,
       title: problem.title,
-      opened: openedInfo?.openedLine,
+      opened: openedInfo?.openedText,
       category: problem.categoryFullName && problem.categoryFullName.trim().length ? problem.categoryFullName : undefined,
       customer: problem.customerName && problem.customerName.trim().length ? problem.customerName : undefined,
-      age: openedInfo?.ageHoursLine,
+      age: openedInfo?.ageText,
       description,
       anchor: anchorEl.getBoundingClientRect()
     });
@@ -423,7 +428,7 @@ function ProblemCard({ problem }: { problem: Problem }) {
           <button
             type="button"
             className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200/70 bg-white/60 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/40 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
-            aria-label={problem.description ? `Info: ${problem.title}` : `Info: ${problem.title} (no description)`}
+            aria-label={problem.description ? `${t('tooltip.pill')}: ${problem.title}` : `${t('tooltip.pill')}: ${problem.title}`}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             onPointerEnter={(e) => {
@@ -472,14 +477,14 @@ function ProblemCard({ problem }: { problem: Problem }) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-[11px] font-semibold tracking-wide text-slate-500 dark:text-slate-300">
-                        Problem
+                        {t('tooltip.sectionProblem')}
                       </div>
                       <div className="mt-0.5 break-words text-sm font-semibold leading-snug text-slate-900 dark:text-white">
                         {tooltip.title}
                       </div>
                     </div>
                     <div className="shrink-0 rounded-full border border-slate-200/70 bg-white/70 px-2 py-1 text-[11px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
-                      Info
+                      {t('tooltip.pill')}
                     </div>
                   </div>
 
@@ -488,26 +493,26 @@ function ProblemCard({ problem }: { problem: Problem }) {
                       <dl className="grid grid-cols-[92px_1fr] gap-x-3 gap-y-1">
                         {tooltip.opened ? (
                           <>
-                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">Opened</dt>
-                            <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.opened.replace(/^Opened:\s*/i, '')}</dd>
+                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.opened')}</dt>
+                            <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.opened}</dd>
                           </>
                         ) : null}
                         {tooltip.category ? (
                           <>
-                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">Category</dt>
+                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.category')}</dt>
                             <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.category}</dd>
                           </>
                         ) : null}
                         {tooltip.customer ? (
                           <>
-                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">Customer</dt>
+                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.customer')}</dt>
                             <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.customer}</dd>
                           </>
                         ) : null}
                         {tooltip.age ? (
                           <>
-                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">Age</dt>
-                            <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.age.replace(/^Age:\s*/i, '')}</dd>
+                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.age')}</dt>
+                            <dd className="break-words text-slate-900 dark:text-slate-50">{t('tooltip.ageValue', { age: tooltip.age })}</dd>
                           </>
                         ) : null}
                       </dl>
@@ -516,7 +521,7 @@ function ProblemCard({ problem }: { problem: Problem }) {
 
                   <div className="mt-3 border-t border-slate-200/70 pt-3 dark:border-white/10">
                     <div className="text-[11px] font-semibold tracking-wide text-slate-500 dark:text-slate-300">
-                      Description
+                      {t('tooltip.description')}
                     </div>
                     <div className="mt-1 max-h-56 overflow-auto whitespace-pre-wrap break-words pr-1 text-slate-800 dark:text-slate-100">
                       {tooltip.description}
@@ -536,7 +541,56 @@ function ProblemCard({ problem }: { problem: Problem }) {
   );
 }
 
+function DashboardCard({ rows }: { rows: Array<{ name: string; count: number }> }) {
+  const { t } = useTranslation();
+  const max = rows.reduce((m, r) => Math.max(m, r.count), 0);
+
+  return (
+    <section
+      aria-label={t('dashboard.title')}
+      className={[
+        'relative flex h-[72vh] flex-col overflow-hidden rounded-3xl border shadow-sm backdrop-blur-xl md:h-[78vh]',
+        'border-slate-200/70 bg-white/60 dark:border-white/10 dark:bg-white/5 dark:shadow-black/20',
+        'ring-1 ring-black/5 dark:ring-white/5'
+      ].join(' ')}
+    >
+      <div className="border-b border-slate-200/70 px-5 py-4 dark:border-white/10">
+        <div className="text-sm font-semibold text-slate-900 dark:text-white">{t('dashboard.title')}</div>
+        <div className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{t('dashboard.subtitle')}</div>
+      </div>
+
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-5">
+        {rows.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200/70 bg-white/50 px-3 py-2 text-xs text-slate-600 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+            {t('dashboard.empty')}
+          </div>
+        ) : (
+          rows.map((r) => {
+            const pct = max > 0 ? Math.round((r.count / max) * 100) : 0;
+            return (
+              <div key={r.name} className="rounded-2xl border border-slate-200/70 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="min-w-0 truncate text-xs font-semibold text-slate-900 dark:text-white">{r.name}</div>
+                  <div className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-200">{r.count}</div>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-indigo-500/60 dark:bg-indigo-400/40"
+                    style={{ width: `${pct}%` }}
+                    aria-hidden="true"
+                  />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function Board({ model }: { model: Model }) {
+  const { t } = useTranslation();
   const [problems, setProblems] = useState<Problem[]>(model.problems);
   const [activeProblemId, setActiveProblemId] = useState<string | null>(null);
   const [activeLaneDragId, setActiveLaneDragId] = useState<string | null>(null);
@@ -580,6 +634,34 @@ export default function Board({ model }: { model: Model }) {
     return map;
   }, [problems, lanes]);
 
+  const sortedLanes = useMemo(() => {
+    const laneCount = (laneId: string) => problemsByLane.get(laneId)?.length ?? 0;
+
+    const teamLanes = lanes.filter((l) => l.assigneeType === 'team');
+    const employeeLanes = lanes
+      .filter((l) => l.assigneeType === 'employee')
+      .slice()
+      .sort((a, b) => {
+        const diff = laneCount(b.id) - laneCount(a.id);
+        if (diff !== 0) return diff;
+        return a.title.localeCompare(b.title);
+      });
+
+    const otherLanes = lanes.filter((l) => l.assigneeType !== 'team' && l.assigneeType !== 'employee');
+    return [...teamLanes, ...employeeLanes, ...otherLanes];
+  }, [lanes, problemsByLane]);
+
+  const dashboardRows = useMemo(() => {
+    return lanes
+      .filter((l) => l.assigneeType === 'employee')
+      .map((l) => ({ name: l.title, count: problemsByLane.get(l.id)?.length ?? 0 }))
+      .sort((a, b) => {
+        const diff = b.count - a.count;
+        if (diff !== 0) return diff;
+        return a.name.localeCompare(b.name);
+      });
+  }, [lanes, problemsByLane]);
+
   const activeProblem = useMemo(
     () => problems.find((p) => p.id === activeProblemId) ?? null,
     [activeProblemId, problems]
@@ -590,6 +672,10 @@ export default function Board({ model }: { model: Model }) {
     const laneId = activeLaneDragId.replace(/^lane::/, '');
     return lanes.find((l) => l.id === laneId) ?? null;
   }, [activeLaneDragId, lanes]);
+
+  function ownerTypeLabel(type: OwnerRef['type']) {
+    return type === 'team' ? t('lane.type.team') : t('lane.type.employee');
+  }
 
   function clearMessageSoon() {
     window.setTimeout(() => setMessage(null), 2500);
@@ -641,7 +727,7 @@ export default function Board({ model }: { model: Model }) {
 
       const ok = isMoveAllowed(model.allowedMoves, fromOwner.type, toOwner.type);
       if (!ok) {
-        setMessage(`Move not allowed: ${fromOwner.type} → ${toOwner.type}`);
+        setMessage(t('message.moveNotAllowed', { from: ownerTypeLabel(fromOwner.type), to: ownerTypeLabel(toOwner.type) }));
         clearMessageSoon();
         return;
       }
@@ -653,7 +739,7 @@ export default function Board({ model }: { model: Model }) {
         const srcCount = prev.filter((p) => p.currentLaneId === srcLaneId).length;
         if (srcCount === 0) return prev;
 
-        setMessage(`Moved ${srcCount} problems`);
+        setMessage(t('message.movedCount', { count: srcCount }));
         clearMessageSoon();
 
         return prev.map((p) => {
@@ -695,7 +781,7 @@ export default function Board({ model }: { model: Model }) {
 
       const ok = isMoveAllowed(model.allowedMoves, fromOwner.type, toOwner.type);
       if (!ok) {
-        setMessage(`Move not allowed: ${fromOwner.type} → ${toOwner.type}`);
+        setMessage(t('message.moveNotAllowed', { from: ownerTypeLabel(fromOwner.type), to: ownerTypeLabel(toOwner.type) }));
         clearMessageSoon();
         return prev;
       }
@@ -739,7 +825,8 @@ export default function Board({ model }: { model: Model }) {
         onDragEnd={onDragEnd}
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" role="list">
-          {lanes.map((lane) => (
+          <DashboardCard rows={dashboardRows} />
+          {sortedLanes.map((lane) => (
             <DroppableLane
               key={lane.id}
               lane={lane}
@@ -784,7 +871,12 @@ export default function Board({ model }: { model: Model }) {
               className="rounded-2xl border border-slate-200/70 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-900 shadow-lg backdrop-blur dark:border-white/10 dark:bg-white/10 dark:text-white"
               style={{ cursor: 'grabbing' }}
             >
-              Move all from: {activeLane.title}
+              {t('drag.moveAllFrom', {
+                lane:
+                  activeLane.assigneeType === 'team'
+                    ? t('lane.teamQueueTitle', { team: activeLane.title })
+                    : activeLane.title
+              })}
             </div>
           ) : null}
         </DragOverlay>

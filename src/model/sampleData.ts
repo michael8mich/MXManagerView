@@ -15,7 +15,7 @@ export const sampleData: Model = {
       id: 'board-1',
       name: 'Open Problems',
       lanes: [
-        { id: 'lane-team', title: 'Team Queue', assigneeType: 'team', assigneeId: 'team-1' },
+        { id: 'lane-team', title: 'Team Alpha', assigneeType: 'team', assigneeId: 'team-1' },
         { id: 'lane-emp-101', title: 'Noah', assigneeType: 'employee', assigneeId: 'emp-101' },
         { id: 'lane-emp-102', title: 'Ava', assigneeType: 'employee', assigneeId: 'emp-102' },
         { id: 'lane-emp-103', title: 'Liam', assigneeType: 'employee', assigneeId: 'emp-103' }

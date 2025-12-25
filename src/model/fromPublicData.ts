@@ -226,7 +226,7 @@ export function modelFromPublicData(
   const managerId = employees.find((e) => e.role === 'manager')?.id ?? employees[0]?.id ?? 'manager';
 
   const lanes: Lane[] = [
-    { id: 'lane-team', title: `${primary.group_name} Queue`, assigneeType: 'team', assigneeId: primary.group_uuid },
+    { id: 'lane-team', title: primary.group_name, assigneeType: 'team', assigneeId: primary.group_uuid },
     ...employees.map((e) => ({
       id: `lane-emp-${e.id}`,
       title: e.name,

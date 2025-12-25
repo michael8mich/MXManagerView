@@ -1,0 +1,58 @@
+{
+  "app": {
+    "title": "תצוגת מנהל",
+    "subtitle": "גרור תקלות בין צוות / עובדים • {{date}}",
+    "teamLabel": "צוות",
+    "langLabel": "שפה",
+    "illegalMovesHint": "מהלכים לא חוקיים יציגו הודעה",
+    "themeLabel": "ערכת נושא",
+    "themeDark": "כהה",
+    "themeLight": "בהירה",
+    "usingSampleData": "מציג נתוני דוגמה (נכשל בטעינת ‎/data.json)"
+  },
+  "lane": {
+    "teamQueueTitle": "תור {{team}}",
+    "type": {
+      "team": "צוות",
+      "employee": "עובד"
+    },
+    "moveAll": "העבר הכל",
+    "moveAllTitle": "גרור כדי להעביר את כל התקלות בעמודה הזאת",
+    "itemsCount": "{{count}} תקלות",
+    "dropHint": "שחרר על הכותרת או כאן"
+  },
+  "drag": {
+    "moveAllFrom": "העבר הכל מ: {{lane}}"
+  },
+  "message": {
+    "moveNotAllowed": "העברה לא מותרת: {{from}} → {{to}}",
+    "movedCount": "הועברו {{count}} תקלות"
+  },
+  "tooltip": {
+    "pill": "מידע",
+    "sectionProblem": "בעיה",
+    "opened": "נפתח",
+    "category": "קטגוריה",
+    "customer": "לקוח",
+    "age": "משך",
+    "ageValue": "{{age}} מאז פתיחה",
+    "description": "תיאור",
+    "noDescription": "אין תיאור"
+  },
+  "dashboard": {
+    "title": "לוח בקרה",
+    "subtitle": "תקלות לפי עובד",
+    "empty": "אין עובדים"
+  },
+  "duration": {
+    "y": "{{count}} שנים",
+    "mo": "{{count}} חודשים",
+    "d": "{{count}} ימים",
+    "h": "{{count}} שעות",
+    "m": "{{count}} דקות"
+  },
+  "language": {
+    "en": "אנגלית",
+    "he": "עברית"
+  }
+}

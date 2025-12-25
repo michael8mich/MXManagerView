@@ -1,0 +1,63 @@
+{
+  "app": {
+    "title": "Mx Manager View",
+    "subtitle": "Drag problems between Team / Employees • {{date}}",
+    "teamLabel": "Team",
+    "langLabel": "Lang",
+    "illegalMovesHint": "Illegal moves show a message",
+    "themeLabel": "Theme",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "usingSampleData": "Using sample data (failed to load /data.json)"
+  },
+  "lane": {
+    "teamQueueTitle": "{{team}} Queue",
+    "type": {
+      "team": "team",
+      "employee": "employee"
+    },
+    "moveAll": "Move all",
+    "moveAllTitle": "Drag to move ALL problems in this lane",
+    "itemsCount": "{{count}} items",
+    "dropHint": "Drop on header or here"
+  },
+  "drag": {
+    "moveAllFrom": "Move all from: {{lane}}"
+  },
+  "message": {
+    "moveNotAllowed": "Move not allowed: {{from}} → {{to}}",
+    "movedCount": "Moved {{count}} problems"
+  },
+  "tooltip": {
+    "pill": "Info",
+    "sectionProblem": "Problem",
+    "opened": "Opened",
+    "category": "Category",
+    "customer": "Customer",
+    "age": "Age",
+    "ageValue": "{{age}} since open",
+    "description": "Description",
+    "noDescription": "No description"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Problems by employee",
+    "empty": "No employees"
+  },
+  "duration": {
+    "y_one": "{{count}} year",
+    "y_other": "{{count}} years",
+    "mo_one": "{{count}} month",
+    "mo_other": "{{count}} months",
+    "d_one": "{{count}} day",
+    "d_other": "{{count}} days",
+    "h_one": "{{count}} hour",
+    "h_other": "{{count}} hours",
+    "m_one": "{{count}} minute",
+    "m_other": "{{count}} minutes"
+  },
+  "language": {
+    "en": "English",
+    "he": "Hebrew"
+  }
+}
