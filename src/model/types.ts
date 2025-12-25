@@ -21,6 +21,12 @@ export interface Problem {
   title: string;
   priority: Priority;
   status: ProblemStatus;
+  statusLabel?: string;
+  description?: string;
+  openedAtEpochSeconds?: number;
+  openedAtIso?: string;
+  categoryFullName?: string;
+  customerName?: string;
   owner: OwnerRef;
   currentLaneId: string;
   tags: string[];

@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Board from './board/Board';
 import { sampleData } from './model/sampleData';
+import type { Model } from './model/types';
+import {
+  listGroups,
+  modelFromPublicData,
+  type PublicDataJson,
+  type PublicGroup
+} from './model/fromPublicData';
 
 export default function App() {
   const today = useMemo(() => new Date().toLocaleDateString(), []);
@@ -9,12 +16,57 @@ export default function App() {
     return saved === 'dark' ? 'dark' : 'light';
   });
 
+  const [model, setModel] = useState<Model>(() => sampleData);
+  const [dataNotice, setDataNotice] = useState<string | null>(null);
+  const [publicData, setPublicData] = useState<PublicDataJson | null>(null);
+  const [groups, setGroups] = useState<PublicGroup[]>([]);
+  const [selectedGroupUuid, setSelectedGroupUuid] = useState<string | null>(() =>
+    window.localStorage.getItem('mxmanv.group_uuid')
+  );
+
   useEffect(() => {
     const root = document.documentElement;
     if (theme === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
     window.localStorage.setItem('mxmanv.theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/data.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = (await res.json()) as PublicDataJson;
+        const next = modelFromPublicData(json);
+        if (cancelled) return;
+        setPublicData(json);
+        const g = listGroups(json);
+        setGroups(g);
+
+        const saved = window.localStorage.getItem('mxmanv.group_uuid');
+        const initialGroup = saved && g.some((x) => x.group_uuid === saved) ? saved : g[0]?.group_uuid ?? null;
+        setSelectedGroupUuid(initialGroup);
+        setModel(initialGroup ? modelFromPublicData(json, { group_uuid: initialGroup }) : next);
+        setDataNotice(null);
+      } catch {
+        if (cancelled) return;
+        setModel(sampleData);
+        setPublicData(null);
+        setGroups([]);
+        setDataNotice('Using sample data (failed to load /data.json)');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!publicData || !selectedGroupUuid) return;
+    window.localStorage.setItem('mxmanv.group_uuid', selectedGroupUuid);
+    setModel(modelFromPublicData(publicData, { group_uuid: selectedGroupUuid }));
+  }, [publicData, selectedGroupUuid]);
 
   return (
     <div className="min-h-screen">
@@ -30,6 +82,22 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            {groups.length >= 1 ? (
+              <label className="flex items-center gap-2 rounded-full border border-slate-200/70 bg-white/60 px-3 py-1 text-xs text-slate-700 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                <span className="text-slate-500 dark:text-slate-300">Team</span>
+                <select
+                  className="bg-transparent text-xs font-semibold text-slate-900 outline-none dark:text-slate-100"
+                  value={selectedGroupUuid ?? ''}
+                  onChange={(e) => setSelectedGroupUuid(e.target.value)}
+                >
+                  {groups.map((g) => (
+                    <option key={g.group_uuid} value={g.group_uuid}>
+                      {g.group_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <div className="hidden rounded-full border border-slate-200/70 bg-white/60 px-3 py-1 text-xs text-slate-700 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200 sm:block">
               Illegal moves show a message
             </div>
@@ -45,7 +113,12 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <Board model={sampleData} />
+        {dataNotice ? (
+          <div className="mb-4 rounded-2xl border border-amber-200/70 bg-white/60 px-4 py-3 text-sm text-amber-900 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:shadow-black/20">
+            {dataNotice}
+          </div>
+        ) : null}
+        <Board model={model} />
       </main>
     </div>
   );
