@@ -23,6 +23,8 @@ export interface Problem {
   priority: Priority;
   problemType?: string;
   attachmentsCount?: number;
+  workflowsCount?: number;
+  assetName?: string;
   status: ProblemStatus;
   statusLabel?: string;
   description?: string;

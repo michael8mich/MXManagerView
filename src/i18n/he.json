@@ -43,6 +43,8 @@
     "lastUpdatedAgeValue": "לפני {{age}}",
     "lastUpdatedBy": "עודכן על ידי",
     "attachments": "קבצים מצורפים: {{count}}",
+    "workflows": "זרימות עבודה",
+    "asset": "נכס",
     "category": "קטגוריה",
     "customer": "לקוח",
     "age": "משך",

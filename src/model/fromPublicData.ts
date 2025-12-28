@@ -20,6 +20,7 @@ type PublicProblem = {
   category_name?: string | null;
   customer_name?: string | null;
   attmnts?: number | null;
+  wfs?: number | null;
   group_id?: string | null;
   group_name?: string | null;
   assignee_id?: string | null;
@@ -155,6 +156,11 @@ function safeCustomerName(p: PublicProblem): string | undefined {
   return raw.length ? raw : undefined;
 }
 
+function safeAssetName(p: PublicProblem): string | undefined {
+  const raw = String(p.asset_name ?? '').trim();
+  return raw.length ? raw : undefined;
+}
+
 export function modelFromPublicData(
   data: PublicDataJson,
   options?: { group_uuid?: string }
@@ -267,6 +273,8 @@ export function modelFromPublicData(
 
       const attachmentsCount = typeof p.attmnts === 'number' && Number.isFinite(p.attmnts) ? Math.max(0, p.attmnts) : 0;
 
+      const workflowsCount = typeof p.wfs === 'number' && Number.isFinite(p.wfs) ? Math.max(0, p.wfs) : 0;
+
       const lastModifiedAtEpochSeconds = typeof p.last_mod_dt === 'number' ? p.last_mod_dt : undefined;
       const lastModifiedAtIso = typeof lastModifiedAtEpochSeconds === 'number'
         ? toIsoFromEpochSeconds(lastModifiedAtEpochSeconds)
@@ -282,6 +290,8 @@ export function modelFromPublicData(
         priority,
         problemType,
         attachmentsCount,
+        workflowsCount,
+        assetName: safeAssetName(p),
         status,
         statusLabel: p.status_name ?? undefined,
         description: safeDescription(p),

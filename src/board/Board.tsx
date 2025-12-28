@@ -513,6 +513,23 @@ function AgeMiniChart({ t, problem }: { t: TFn; problem: Problem }) {
   );
 }
 
+function CountMiniBar({ count }: { count: number }) {
+  const safe = Number.isFinite(count) ? Math.max(0, count) : 0;
+  const max = 10;
+  const pct = clamp((safe / max) * 100, 0, 100);
+  const tone = safe >= 8
+    ? 'bg-rose-500/60 dark:bg-rose-400/35'
+    : safe >= 4
+      ? 'bg-amber-500/60 dark:bg-amber-400/35'
+      : 'bg-sky-500/60 dark:bg-sky-400/35';
+
+  return (
+    <div className="h-2 w-14 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10" aria-hidden="true">
+      <div className={['h-full rounded-full', tone].join(' ')} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
 function ProblemCard({ problem }: { problem: Problem }) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -543,6 +560,8 @@ function ProblemCard({ problem }: { problem: Problem }) {
         lastUpdated?: string;
         lastUpdatedAge?: string;
         lastUpdatedBy?: string;
+        workflowsCount?: number;
+        asset?: string;
         category?: string;
         customer?: string;
         age?: string;
@@ -593,6 +612,8 @@ function ProblemCard({ problem }: { problem: Problem }) {
       lastUpdated: lastUpdated && lastUpdated.length ? lastUpdated : undefined,
       lastUpdatedAge: lastUpdatedAge && lastUpdatedAge.length ? lastUpdatedAge : undefined,
       lastUpdatedBy,
+      workflowsCount: typeof problem.workflowsCount === 'number' && problem.workflowsCount > 0 ? problem.workflowsCount : undefined,
+      asset: problem.assetName && problem.assetName.trim().length ? problem.assetName : undefined,
       category: problem.categoryFullName && problem.categoryFullName.trim().length ? problem.categoryFullName : undefined,
       customer: problem.customerName && problem.customerName.trim().length ? problem.customerName : undefined,
       age: openedInfo?.ageText,
@@ -720,16 +741,22 @@ function ProblemCard({ problem }: { problem: Problem }) {
               const width = 420;
               const margin = 12;
               const left = clamp(tooltip.anchor.right - width, margin, window.innerWidth - margin - width);
-              const top = clamp(tooltip.anchor.bottom + 10, margin, window.innerHeight - margin - 220);
+              const maxH = Math.max(160, window.innerHeight - margin * 2);
+              const estimatedH = 360;
+              const belowTop = tooltip.anchor.bottom + 10;
+              const aboveTop = tooltip.anchor.top - 10 - estimatedH;
+              const preferBelow = belowTop + estimatedH <= window.innerHeight - margin;
+              const topPreferred = preferBelow ? belowTop : aboveTop;
+              const top = clamp(topPreferred, margin, window.innerHeight - margin - Math.min(estimatedH, maxH));
 
               return (
                 <div
                   role="tooltip"
                   className={[
-                    'fixed z-[9999] w-[420px] max-w-[calc(100vw-24px)] rounded-3xl border border-slate-200/70 bg-white/95 p-4 text-xs text-slate-800 shadow-lg backdrop-blur-2xl',
+                    'fixed z-[9999] w-[420px] max-w-[calc(100vw-24px)] overflow-auto rounded-3xl border border-slate-200/70 bg-white/95 p-4 text-xs text-slate-800 shadow-lg backdrop-blur-2xl',
                     'dark:border-white/10 dark:bg-slate-950/80 dark:text-slate-100'
                   ].join(' ')}
-                  style={{ left, top }}
+                  style={{ left, top, maxHeight: maxH }}
                   onPointerEnter={() => cancelScheduledClose()}
                   onPointerLeave={() => scheduleClose(120)}
                 >
@@ -747,7 +774,7 @@ function ProblemCard({ problem }: { problem: Problem }) {
                     </div>
                   </div>
 
-                  {(tooltip.opened || tooltip.lastUpdated || tooltip.lastUpdatedBy || tooltip.category || tooltip.customer || tooltip.age) ? (
+                  {(tooltip.opened || tooltip.lastUpdated || tooltip.lastUpdatedBy || tooltip.asset || tooltip.category || tooltip.customer || tooltip.age || (typeof tooltip.workflowsCount === 'number' && tooltip.workflowsCount > 0)) ? (
                     <div className="mt-3 rounded-2xl border border-slate-200/70 bg-slate-50/60 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
                       <dl className="grid grid-cols-[92px_1fr] gap-x-3 gap-y-1">
                         {tooltip.opened ? (
@@ -778,6 +805,21 @@ function ProblemCard({ problem }: { problem: Problem }) {
                           <>
                             <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.lastUpdatedBy')}</dt>
                             <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.lastUpdatedBy}</dd>
+                          </>
+                        ) : null}
+                        {typeof tooltip.workflowsCount === 'number' && tooltip.workflowsCount > 0 ? (
+                          <>
+                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.workflows')}</dt>
+                            <dd className="flex items-center gap-2 text-slate-900 dark:text-slate-50">
+                              <span className="text-xs font-semibold tabular-nums">{tooltip.workflowsCount}</span>
+                              <CountMiniBar count={tooltip.workflowsCount} />
+                            </dd>
+                          </>
+                        ) : null}
+                        {tooltip.asset ? (
+                          <>
+                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.asset')}</dt>
+                            <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.asset}</dd>
                           </>
                         ) : null}
                         {tooltip.category ? (

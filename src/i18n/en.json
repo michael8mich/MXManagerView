@@ -44,6 +44,8 @@
     "lastUpdatedAgeValue": "{{age}} ago",
     "lastUpdatedBy": "Updated by",
     "attachments": "Attachments: {{count}}",
+    "workflows": "Workflows",
+    "asset": "Asset",
     "category": "Category",
     "customer": "Customer",
     "age": "Age",
