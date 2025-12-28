@@ -1,6 +1,6 @@
 import type { AllowedMove, Employee, Lane, Model, OwnerRef, Problem, ProblemStatus, Priority } from './types';
 
-type PublicGrpMem = {
+export type PublicGrpMem = {
   group_uuid: string;
   group_name: string;
   member_uuid: string;
@@ -21,9 +21,9 @@ type PublicProblem = {
   customer_name?: string | null;
   attmnts?: number | null;
   wfs?: number | null;
-  group_id?: string | null;
+  group_id?: string | number | null;
   group_name?: string | null;
-  assignee_id?: string | null;
+  assignee_id?: string | number | null;
   assignee_name?: string | null;
   priority?: number | null;
   type?: string | null;
@@ -56,6 +56,18 @@ function normName(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+function toId(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  return s.length ? s : null;
+}
+
+function isTeamQueueAssignee(assigneeName: string | null | undefined, teamName: string): boolean {
+  const a = assigneeName ? normName(String(assigneeName)) : '';
+  const t = normName(teamName);
+  return !!a && !!t && a === t;
+}
+
 function pickPrimaryGroup(grpmem: PublicGrpMem[]): { group_uuid: string; group_name: string } {
   const counts = new Map<string, { group_uuid: string; group_name: string; count: number }>();
   for (const gm of grpmem) {
@@ -82,15 +94,56 @@ function pickPrimaryGroup(grpmem: PublicGrpMem[]): { group_uuid: string; group_n
 
 export function listGroups(data: PublicDataJson): PublicGroup[] {
   const grpmem = Array.isArray(data.grpmem) ? data.grpmem : [];
-  const groups = uniqBy(
+  const fromGrpMem = uniqBy(
     grpmem
       .filter((gm) => gm && gm.group_uuid)
       .map((gm) => ({ group_uuid: gm.group_uuid, group_name: gm.group_name || 'Team' })),
     (g) => g.group_uuid
   );
 
-  groups.sort((a, b) => a.group_name.localeCompare(b.group_name));
-  return groups;
+  if (fromGrpMem.length) {
+    fromGrpMem.sort((a, b) => a.group_name.localeCompare(b.group_name));
+    return fromGrpMem;
+  }
+
+  // Fallback: derive groups from problems when grpmem is unavailable (server-only mode).
+  const problems = Array.isArray(data.problems) ? data.problems : [];
+  const fromProblems = uniqBy(
+    problems
+      .filter((p) => p && (p.group_id || p.group_name))
+      .map((p) => ({
+        group_uuid: String(toId(p.group_id) || p.group_name || 'Team'),
+        group_name: String(p.group_name || toId(p.group_id) || 'Team')
+      })),
+    (g) => g.group_uuid
+  );
+
+  fromProblems.sort((a, b) => a.group_name.localeCompare(b.group_name));
+  return fromProblems;
+}
+
+function pickPrimaryGroupFromProblems(problems: PublicProblem[]): { group_uuid: string; group_name: string } {
+  const counts = new Map<string, { group_uuid: string; group_name: string; count: number }>();
+  for (const p of problems) {
+    if (!p) continue;
+    const id = String(toId(p.group_id) || p.group_name || 'Team');
+    const name = String(p.group_name || toId(p.group_id) || 'Team');
+    const entry = counts.get(id);
+    if (entry) {
+      entry.count += 1;
+      if (name) entry.group_name = name;
+    } else {
+      counts.set(id, { group_uuid: id, group_name: name || 'Team', count: 1 });
+    }
+  }
+
+  let best: { group_uuid: string; group_name: string; count: number } | null = null;
+  for (const v of counts.values()) {
+    if (!best || v.count > best.count) best = v;
+  }
+
+  if (best) return { group_uuid: best.group_uuid, group_name: best.group_name };
+  return { group_uuid: 'team-1', group_name: 'Team' };
 }
 
 function mapPriority(priorityRaw: number | null | undefined): Priority {
@@ -169,9 +222,25 @@ export function modelFromPublicData(
   const preferred = options?.group_uuid
     ? allGrpMem.find((gm) => gm.group_uuid === options.group_uuid)
     : undefined;
-  const primary = preferred
-    ? { group_uuid: preferred.group_uuid, group_name: preferred.group_name || 'Team' }
-    : pickPrimaryGroup(allGrpMem);
+
+  const problemsAll = Array.isArray(data.problems) ? data.problems : [];
+
+  const primary = (() => {
+    if (preferred) return { group_uuid: preferred.group_uuid, group_name: preferred.group_name || 'Team' };
+    if (options?.group_uuid) {
+      const match = problemsAll.find(
+        (p) => p && (toId(p.group_id) === options.group_uuid || p.group_name === options.group_uuid)
+      );
+      if (match) {
+        return {
+          group_uuid: String(toId(match.group_id) || options.group_uuid),
+          group_name: String(match.group_name || 'Team')
+        };
+      }
+      return { group_uuid: options.group_uuid, group_name: 'Team' };
+    }
+    return allGrpMem.length ? pickPrimaryGroup(allGrpMem) : pickPrimaryGroupFromProblems(problemsAll);
+  })();
 
   const membersInGroup = allGrpMem.filter((gm) => gm && gm.group_uuid === primary.group_uuid);
   const memberByUuid = new Map<string, PublicGrpMem>();
@@ -180,12 +249,10 @@ export function modelFromPublicData(
     if (!memberByUuid.has(gm.member_uuid)) memberByUuid.set(gm.member_uuid, gm);
   }
 
-  // Collect assignees from problems for this group so we can show their lanes
-  // even if they are marked inactive or missing from grpmem.
-  const problemsAll = Array.isArray(data.problems) ? data.problems : [];
   const problemsForGroup = problemsAll.filter((p) => {
     if (!p) return false;
-    if (p.group_id && p.group_id === primary.group_uuid) return true;
+    const gid = toId(p.group_id);
+    if (gid && gid === primary.group_uuid) return true;
     if (!p.group_id && p.group_name && p.group_name === primary.group_name) return true;
     if (!p.group_id && !p.group_name) return true;
     return false;
@@ -194,8 +261,11 @@ export function modelFromPublicData(
   const referencedAssigneeIds = new Set<string>();
   const referencedAssigneeNames = new Set<string>();
   for (const p of problemsForGroup) {
-    if (p.assignee_id) referencedAssigneeIds.add(p.assignee_id);
-    if (p.assignee_name) referencedAssigneeNames.add(p.assignee_name);
+    const aid = toId(p.assignee_id);
+    if (aid) referencedAssigneeIds.add(aid);
+    if (p.assignee_name && !isTeamQueueAssignee(p.assignee_name, primary.group_name)) {
+      referencedAssigneeNames.add(p.assignee_name);
+    }
   }
 
   const includedMemberUuids = new Set<string>();
@@ -217,6 +287,33 @@ export function modelFromPublicData(
     role: gm.manager_flag === 1 || idx === 0 ? 'manager' : 'employee',
     teamId: primary.group_uuid
   }));
+
+  // Server-only mode: if grpmem is empty, derive employees from problems.
+  if (employees.length === 0) {
+    const seen = new Set<string>();
+    const derived: Employee[] = [];
+    for (const p of problemsForGroup) {
+      if (!p) continue;
+      const aid = toId(p.assignee_id);
+      if (aid && aid !== primary.group_uuid && !seen.has(aid)) {
+        const name = p.assignee_name ? String(p.assignee_name) : aid;
+        derived.push({ id: aid, name, role: 'employee', teamId: primary.group_uuid });
+        seen.add(aid);
+      }
+      if (!p.assignee_id && p.assignee_name && !isTeamQueueAssignee(p.assignee_name, primary.group_name)) {
+        const key = normName(String(p.assignee_name));
+        const id = `name:${key}`;
+        if (key && !seen.has(id)) {
+          derived.push({ id, name: String(p.assignee_name), role: 'employee', teamId: primary.group_uuid });
+          seen.add(id);
+        }
+      }
+    }
+
+    // Ensure there is at least one manager.
+    if (derived.length) derived[0] = { ...derived[0], role: 'manager' };
+    employees.push(...derived);
+  }
 
   // Add "ghost" employees from problem assignee_name if they are not present in grpmem.
   const existingNameKeys = new Set(employees.map((e) => normName(e.name)));
@@ -257,9 +354,14 @@ export function modelFromPublicData(
       let owner: OwnerRef = { type: 'team', id: primary.group_uuid };
       let currentLaneId = 'lane-team';
 
-      const emp =
-        (p.assignee_id ? employeeById.get(p.assignee_id) : undefined) ??
-        (p.assignee_name ? employeeByName.get(normName(p.assignee_name)) : undefined);
+      const isTeamQueue =
+        (toId(p.assignee_id) && toId(p.assignee_id) === primary.group_uuid) ||
+        isTeamQueueAssignee(p.assignee_name, primary.group_name);
+
+      const emp = isTeamQueue
+        ? undefined
+        : (toId(p.assignee_id) ? employeeById.get(toId(p.assignee_id) as string) : undefined) ??
+          (p.assignee_name ? employeeByName.get(normName(p.assignee_name)) : undefined);
 
       if (emp) {
         owner = { type: 'employee', id: emp.id };

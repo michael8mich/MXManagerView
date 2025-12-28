@@ -6,10 +6,20 @@ import type { Model } from './model/types';
 import {
   listGroups,
   modelFromPublicData,
+  type PublicGrpMem,
   type PublicDataJson,
   type PublicGroup
 } from './model/fromPublicData';
 import i18n, { isRtl, type SupportedLang } from './i18n';
+import {
+  fetchMxGroupMembers,
+  fetchMxLoginUserInfo,
+  fetchMxProblems,
+  fetchMxUsername,
+  mxRemoteMode,
+  mxUseRemoteApi,
+  type MxLoginUserInfo
+} from './api/mxQuery';
 
 function PlaneScreensaver({ visible }: { visible: boolean }) {
   if (!visible) return null;
@@ -90,7 +100,13 @@ export default function App() {
 
   const [model, setModel] = useState<Model>(() => sampleData);
   const [dataNotice, setDataNotice] = useState<'sampleData' | null>(null);
+  const [remoteNotice, setRemoteNotice] = useState<'mxFailedUsingLocal' | null>(null);
+  const [dataSource, setDataSource] = useState<'mx' | 'local' | 'sample'>(() => 'local');
+  const [mxUsername, setMxUsername] = useState<string | null>(null);
   const [publicData, setPublicData] = useState<PublicDataJson | null>(null);
+  const [serverGroupUuid, setServerGroupUuid] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [groupsByUuid, setGroupsByUuid] = useState<Map<string, PublicGroup>>(() => new Map());
   const [groups, setGroups] = useState<PublicGroup[]>([]);
   const [selectedGroupUuid, setSelectedGroupUuid] = useState<string | null>(() =>
     window.localStorage.getItem('mxmanv.group_uuid')
@@ -124,6 +140,77 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
+        // Fetch username + loginUserInfo (best-effort).
+        let userid: string | null = null;
+        let loginInfo: MxLoginUserInfo | null = null;
+        if (mxUseRemoteApi()) {
+          try {
+            userid = await fetchMxUsername();
+          } catch {
+            userid = null;
+          }
+          if (cancelled) return;
+          setMxUsername(userid);
+
+          if (userid) {
+            try {
+              loginInfo = await fetchMxLoginUserInfo(userid);
+            } catch {
+              loginInfo = null;
+            }
+          }
+        }
+
+        if (mxRemoteMode() === 'all') {
+          const g = loginInfo?.groups?.length
+            ? loginInfo.groups.map((x) => ({ group_uuid: x.group_uuid, group_name: x.group_name }))
+            : listGroups({ grpmem: [], problems: [] } as PublicDataJson);
+          setGroups(g);
+          setGroupsByUuid(new Map(g.map((x) => [x.group_uuid, x] as const)));
+
+          const saved = window.localStorage.getItem('mxmanv.group_uuid');
+          const initialGroup = saved && g.some((x) => x.group_uuid === saved) ? saved : g[0]?.group_uuid ?? null;
+          setSelectedGroupUuid(initialGroup);
+
+          // In server-only mode we load problems filtered by the selected group_name.
+          if (initialGroup) {
+            const groupName = g.find((x) => x.group_uuid === initialGroup)?.group_name;
+            const [remoteProblems, rows] = await Promise.all([
+              fetchMxProblems({ groupName }),
+              groupName ? fetchMxGroupMembers(groupName) : Promise.resolve([])
+            ]);
+            if (cancelled) return;
+
+            const grpmem = rows
+              .filter((r) => r.group_uuid && r.member_uuid)
+              .map(
+                (r) =>
+                  ({
+                    group_uuid: String(r.group_uuid),
+                    group_name: String(r.group_name || groupName || 'Team'),
+                    member_uuid: String(r.member_uuid),
+                    member_name: String(r.member_name || r.member_uuid),
+                    inactive: typeof r.inactive === 'number' ? r.inactive : 0,
+                    manager_flag: typeof r.manager_flag === 'number' ? r.manager_flag : 0
+                  }) satisfies PublicGrpMem
+              );
+
+            const json = { grpmem, problems: remoteProblems as any } as PublicDataJson;
+            setServerGroupUuid(initialGroup);
+            setPublicData(json);
+            setModel(modelFromPublicData(json, { group_uuid: initialGroup }));
+          } else {
+            const json = { grpmem: [], problems: [] } as PublicDataJson;
+            setServerGroupUuid(null);
+            setPublicData(json);
+            setModel(modelFromPublicData(json));
+          }
+          setDataNotice(null);
+          setRemoteNotice(null);
+          setDataSource('mx');
+          return;
+        }
+
         const res = await fetch('/data.json', { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = (await res.json()) as PublicDataJson;
@@ -132,18 +219,24 @@ export default function App() {
         setPublicData(json);
         const g = listGroups(json);
         setGroups(g);
+        setGroupsByUuid(new Map(g.map((x) => [x.group_uuid, x] as const)));
 
         const saved = window.localStorage.getItem('mxmanv.group_uuid');
         const initialGroup = saved && g.some((x) => x.group_uuid === saved) ? saved : g[0]?.group_uuid ?? null;
         setSelectedGroupUuid(initialGroup);
         setModel(initialGroup ? modelFromPublicData(json, { group_uuid: initialGroup }) : next);
         setDataNotice(null);
+        setRemoteNotice(null);
+        setDataSource('local');
       } catch {
         if (cancelled) return;
         setModel(sampleData);
         setPublicData(null);
         setGroups([]);
         setDataNotice('sampleData');
+        setRemoteNotice(null);
+        setDataSource('sample');
+        setMxUsername(null);
       }
     })();
     return () => {
@@ -152,16 +245,163 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!publicData || !selectedGroupUuid) return;
-    window.localStorage.setItem('mxmanv.group_uuid', selectedGroupUuid);
-    setModel(modelFromPublicData(publicData, { group_uuid: selectedGroupUuid }));
-  }, [publicData, selectedGroupUuid]);
+    let cancelled = false;
+    (async () => {
+      if (!publicData || !selectedGroupUuid) return;
+      window.localStorage.setItem('mxmanv.group_uuid', selectedGroupUuid);
+
+      // Server-only mode: problems already loaded from MX on startup.
+      // Do not flip the UI to "local" or re-fetch problems per group.
+      if (mxRemoteMode() === 'all') {
+        setRemoteNotice(null);
+        setDataSource('mx');
+
+        // Avoid re-fetch loops if we just updated publicData for this group.
+        if (serverGroupUuid === selectedGroupUuid) {
+          setModel(modelFromPublicData(publicData, { group_uuid: selectedGroupUuid }));
+          return;
+        }
+
+        const groupName = groupsByUuid.get(selectedGroupUuid)?.group_name;
+        if (groupName) {
+          try {
+            const [remoteProblems, rows] = await Promise.all([
+              fetchMxProblems({ groupName }),
+              fetchMxGroupMembers(groupName)
+            ]);
+            if (cancelled) return;
+            const grpmem = rows
+              .filter((r) => r.group_uuid && r.member_uuid)
+              .map(
+                (r) =>
+                  ({
+                    group_uuid: String(r.group_uuid),
+                    group_name: String(r.group_name || groupName),
+                    member_uuid: String(r.member_uuid),
+                    member_name: String(r.member_name || r.member_uuid),
+                    inactive: typeof r.inactive === 'number' ? r.inactive : 0,
+                    manager_flag: typeof r.manager_flag === 'number' ? r.manager_flag : 0
+                  }) satisfies PublicGrpMem
+              );
+
+            const nextData = { ...publicData, grpmem, problems: remoteProblems as any };
+            setServerGroupUuid(selectedGroupUuid);
+            setPublicData(nextData);
+            setModel(modelFromPublicData(nextData, { group_uuid: selectedGroupUuid }));
+            return;
+          } catch {
+            // fall through
+          }
+        }
+
+        setModel(modelFromPublicData(publicData, { group_uuid: selectedGroupUuid }));
+        return;
+      }
+
+      // Default: use local problems
+      let nextData: PublicDataJson = publicData;
+      setRemoteNotice(null);
+      setDataSource('local');
+
+      // Optional: replace problems with remote API result
+      if (mxUseRemoteApi()) {
+        const groupName = groupsByUuid.get(selectedGroupUuid)?.group_name;
+        if (groupName && groupName.trim().length) {
+          try {
+            const remoteProblems = await fetchMxProblems({ groupName });
+            if (cancelled) return;
+            nextData = { ...publicData, problems: remoteProblems as any };
+            setDataSource('mx');
+          } catch {
+            // Silent fallback to local data.json
+            if (cancelled) return;
+            setRemoteNotice('mxFailedUsingLocal');
+            setDataSource('local');
+          }
+        } else if (mxRemoteMode() === 'all') {
+          // In server-only mode, group_name might be missing for some reason: still try active-only.
+          try {
+            const remoteProblems = await fetchMxProblems({});
+            if (cancelled) return;
+            nextData = { ...publicData, problems: remoteProblems as any };
+            setDataSource('mx');
+          } catch {
+            if (cancelled) return;
+            setRemoteNotice('mxFailedUsingLocal');
+            setDataSource('local');
+          }
+        }
+      }
+
+      setModel(modelFromPublicData(nextData, { group_uuid: selectedGroupUuid }));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [publicData, selectedGroupUuid, groupsByUuid, serverGroupUuid]);
 
   useEffect(() => {
     if (!showScreensaver) return;
     const timerId = window.setTimeout(() => setShowScreensaver(false), 3000);
     return () => window.clearTimeout(timerId);
   }, [showScreensaver]);
+
+  const refreshSelectedTeam = async () => {
+    if (refreshing) return;
+    if (!selectedGroupUuid) return;
+    const groupName = groupsByUuid.get(selectedGroupUuid)?.group_name;
+    if (!groupName || !groupName.trim()) return;
+
+    try {
+      setRefreshing(true);
+      setRemoteNotice(null);
+      setDataSource('mx');
+
+      const [remoteProblems, rows] = await Promise.all([
+        fetchMxProblems({ groupName }),
+        fetchMxGroupMembers(groupName)
+      ]);
+
+      const grpmem = rows
+        .filter((r) => r.group_uuid && r.member_uuid)
+        .map(
+          (r) =>
+            ({
+              group_uuid: String(r.group_uuid),
+              group_name: String(r.group_name || groupName),
+              member_uuid: String(r.member_uuid),
+              member_name: String(r.member_name || r.member_uuid),
+              inactive: typeof r.inactive === 'number' ? r.inactive : 0,
+              manager_flag: typeof r.manager_flag === 'number' ? r.manager_flag : 0
+            }) satisfies PublicGrpMem
+        );
+
+      if (mxRemoteMode() === 'all') {
+        const nextData = { grpmem, problems: remoteProblems as any } as PublicDataJson;
+        setServerGroupUuid(selectedGroupUuid);
+        setPublicData(nextData);
+        setModel(modelFromPublicData(nextData, { group_uuid: selectedGroupUuid }));
+        return;
+      }
+
+      // Hybrid mode: refresh problems and merge grpmem for this group_name only.
+      if (publicData) {
+        const existing = Array.isArray(publicData.grpmem) ? publicData.grpmem : [];
+        const merged = [...existing.filter((x) => x.group_name !== groupName), ...grpmem];
+        const nextData = { ...publicData, grpmem: merged, problems: remoteProblems as any };
+        setPublicData(nextData);
+        setModel(modelFromPublicData(nextData, { group_uuid: selectedGroupUuid }));
+      }
+    } catch {
+      if (mxRemoteMode() !== 'all') {
+        setRemoteNotice('mxFailedUsingLocal');
+        setDataSource('local');
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -219,9 +459,53 @@ export default function App() {
                 <option value="both">{t('app.typeFilterBoth')}</option>
               </select>
             </label>
-            <div className="hidden rounded-full border border-slate-200/70 bg-white/60 px-3 py-1 text-xs text-slate-700 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200 sm:block">
-              {t('app.illegalMovesHint')}
+
+            <div
+              className="hidden rounded-full border border-slate-200/70 bg-white/60 px-3 py-1 text-xs font-semibold text-slate-700 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200 sm:block"
+              title={
+                dataSource === 'mx'
+                  ? t('app.dataSourceMxTitle')
+                  : dataSource === 'sample'
+                    ? t('app.dataSourceSampleTitle')
+                    : t('app.dataSourceLocalTitle')
+              }
+            >
+              {t('app.dataSourceLabel')}: {dataSource === 'mx' ? t('app.dataSourceMx') : dataSource === 'sample' ? t('app.dataSourceSample') : t('app.dataSourceLocal')}
             </div>
+
+            {mxUsername ? (
+              <div
+                className="hidden rounded-full border border-slate-200/70 bg-white/60 px-3 py-1 text-xs font-semibold text-slate-700 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200 sm:block"
+                title={t('app.userTitle')}
+              >
+                {t('app.userLabel')}: {mxUsername}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/70 bg-white/60 text-slate-900 shadow-sm backdrop-blur hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/40 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:shadow-black/20 dark:hover:bg-white/10"
+              onClick={refreshSelectedTeam}
+              disabled={refreshing || !selectedGroupUuid}
+              aria-label={t('app.refresh')}
+              title={t('app.refreshTitle')}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+                <path
+                  d="M20 12a8 8 0 0 1-14.9 4M4 12a8 8 0 0 1 14.9-4"
+                  className="stroke-current"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M18.5 5.5v4h-4M5.5 18.5v-4h4"
+                  className="stroke-current"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
             <button
               type="button"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/70 bg-white/60 text-slate-900 shadow-sm backdrop-blur hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/40 dark:border-white/10 dark:bg-white/5 dark:text-white dark:shadow-black/20 dark:hover:bg-white/10"
@@ -262,6 +546,11 @@ export default function App() {
         {dataNotice ? (
           <div className="mb-4 rounded-2xl border border-amber-200/70 bg-white/60 px-4 py-3 text-sm text-amber-900 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:shadow-black/20">
             {dataNotice === 'sampleData' ? t('app.usingSampleData') : dataNotice}
+          </div>
+        ) : null}
+        {remoteNotice ? (
+          <div className="mb-4 rounded-2xl border border-amber-200/70 bg-white/60 px-4 py-3 text-sm text-amber-900 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:shadow-black/20">
+            {remoteNotice === 'mxFailedUsingLocal' ? t('app.mxFailedUsingLocal') : remoteNotice}
           </div>
         ) : null}
         <Board model={model} typeFilter={typeFilter} />

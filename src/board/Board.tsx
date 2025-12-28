@@ -867,6 +867,100 @@ function DashboardCard({
 }) {
   const { t } = useTranslation();
   const max = rows.reduce((m, r) => Math.max(m, r.total), 0);
+  const [view, setView] = useState<'list' | 'pie' | 'treemap'>('list');
+
+  const pieRows = useMemo(() => rows.filter((r) => r.total > 0), [rows]);
+  const pieTotal = useMemo(() => pieRows.reduce((s, r) => s + r.total, 0), [pieRows]);
+  const piePalette = useMemo(
+    () => [
+      'stroke-sky-500/70 dark:stroke-sky-400/45',
+      'stroke-rose-500/70 dark:stroke-rose-400/45',
+      'stroke-emerald-500/70 dark:stroke-emerald-400/45',
+      'stroke-amber-500/75 dark:stroke-amber-400/50',
+      'stroke-violet-500/70 dark:stroke-violet-400/45',
+      'stroke-cyan-500/70 dark:stroke-cyan-400/45',
+      'stroke-fuchsia-500/70 dark:stroke-fuchsia-400/45',
+      'stroke-lime-500/70 dark:stroke-lime-400/45'
+    ],
+    []
+  );
+
+  const treemapFillPalette = useMemo(
+    () => [
+      'fill-sky-500/20 dark:fill-sky-400/12',
+      'fill-rose-500/20 dark:fill-rose-400/12',
+      'fill-emerald-500/20 dark:fill-emerald-400/12',
+      'fill-amber-500/20 dark:fill-amber-400/12',
+      'fill-violet-500/20 dark:fill-violet-400/12',
+      'fill-cyan-500/20 dark:fill-cyan-400/12',
+      'fill-fuchsia-500/20 dark:fill-fuchsia-400/12',
+      'fill-lime-500/20 dark:fill-lime-400/12'
+    ],
+    []
+  );
+
+  type DashboardRow = { name: string; total: number; requests: number; incidents: number };
+  type TreemapRect = { x: number; y: number; w: number; h: number; r: DashboardRow; idx: number };
+
+  function buildTreemapLayout(items: DashboardRow[], width: number, height: number): TreemapRect[] {
+    const stable = [...items]
+      .map((r, idx) => ({ r, idx }))
+      .filter((x) => x.r.total > 0)
+      .sort((a, b) => (b.r.total - a.r.total) || a.r.name.localeCompare(b.r.name));
+
+    const sum = (arr: Array<{ r: DashboardRow }>) => arr.reduce((s, x) => s + x.r.total, 0);
+
+    const partition = (arr: Array<{ r: DashboardRow; idx: number }>) => {
+      const a: Array<{ r: DashboardRow; idx: number }> = [];
+      const b: Array<{ r: DashboardRow; idx: number }> = [];
+      let sa = 0;
+      let sb = 0;
+      for (const it of arr) {
+        if (sa <= sb) {
+          a.push(it);
+          sa += it.r.total;
+        } else {
+          b.push(it);
+          sb += it.r.total;
+        }
+      }
+      return { a, b, sa, sb };
+    };
+
+    const out: TreemapRect[] = [];
+    const layout = (
+      arr: Array<{ r: DashboardRow; idx: number }>,
+      x: number,
+      y: number,
+      w: number,
+      h: number
+    ) => {
+      if (arr.length === 0) return;
+      if (arr.length === 1) {
+        out.push({ x, y, w, h, r: arr[0].r, idx: arr[0].idx });
+        return;
+      }
+
+      const total = sum(arr);
+      if (total <= 0) return;
+
+      const { a, b, sa } = partition(arr);
+      const splitRatio = sa / total;
+
+      if (w >= h) {
+        const wA = w * splitRatio;
+        layout(a, x, y, wA, h);
+        layout(b, x + wA, y, w - wA, h);
+      } else {
+        const hA = h * splitRatio;
+        layout(a, x, y, w, hA);
+        layout(b, x, y + hA, w, h - hA);
+      }
+    };
+
+    layout(stable, 0, 0, width, height);
+    return out;
+  }
 
   return (
     <section
@@ -878,14 +972,293 @@ function DashboardCard({
       ].join(' ')}
     >
       <div className="border-b border-slate-200/70 px-5 py-4 dark:border-white/10">
-        <div className="text-sm font-semibold text-slate-900 dark:text-white">{t('dashboard.title')}</div>
-        <div className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{t('dashboard.subtitle')}</div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-900 dark:text-white">{t('dashboard.title')}</div>
+            <div className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{t('dashboard.subtitle')}</div>
+          </div>
+
+          <div className="inline-flex overflow-hidden rounded-full border border-slate-200/70 bg-white/60 text-xs font-semibold text-slate-700 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+            <button
+              type="button"
+              className={[
+                'px-3 py-1.5',
+                view === 'list'
+                  ? 'bg-white/70 text-slate-900 dark:bg-white/10 dark:text-white'
+                  : 'hover:bg-white/60 dark:hover:bg-white/10'
+              ].join(' ')}
+              onClick={() => setView('list')}
+              aria-pressed={view === 'list'}
+              aria-label={t('dashboard.viewList')}
+              title={t('dashboard.viewList')}
+            >
+              {t('dashboard.viewList')}
+            </button>
+            <button
+              type="button"
+              className={[
+                'px-3 py-1.5',
+                view === 'pie'
+                  ? 'bg-white/70 text-slate-900 dark:bg-white/10 dark:text-white'
+                  : 'hover:bg-white/60 dark:hover:bg-white/10'
+              ].join(' ')}
+              onClick={() => setView('pie')}
+              aria-pressed={view === 'pie'}
+              aria-label={t('dashboard.viewPie')}
+              title={t('dashboard.viewPie')}
+            >
+              {t('dashboard.viewPie')}
+            </button>
+            <button
+              type="button"
+              className={[
+                'px-3 py-1.5',
+                view === 'treemap'
+                  ? 'bg-white/70 text-slate-900 dark:bg-white/10 dark:text-white'
+                  : 'hover:bg-white/60 dark:hover:bg-white/10'
+              ].join(' ')}
+              onClick={() => setView('treemap')}
+              aria-pressed={view === 'treemap'}
+              aria-label={t('dashboard.viewTreemap')}
+              title={t('dashboard.viewTreemap')}
+            >
+              {t('dashboard.viewTreemap')}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-5">
         {rows.length === 0 ? (
           <div className="rounded-2xl border border-slate-200/70 bg-white/50 px-3 py-2 text-xs text-slate-600 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
             {t('dashboard.empty')}
+          </div>
+        ) : view === 'pie' ? (
+          <div className="rounded-2xl border border-slate-200/70 bg-white/50 p-4 backdrop-blur dark:border-white/10 dark:bg-white/5">
+            {pieTotal === 0 ? (
+              <div className="text-xs text-slate-600 dark:text-slate-200">{t('dashboard.empty')}</div>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative mx-auto h-[220px] w-[220px]">
+                  <svg viewBox="0 0 100 100" className="h-full w-full" aria-hidden="true">
+                    <g transform="rotate(-90 50 50)">
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        className="stroke-slate-200/80 dark:stroke-white/10"
+                        strokeWidth="12"
+                        fill="none"
+                      />
+
+                      {(() => {
+                        const radius = 38;
+                        const circumference = 2 * Math.PI * radius;
+                        let offset = 0;
+                        return pieRows.map((r, idx) => {
+                          const len = (r.total / pieTotal) * circumference;
+                          const cls = piePalette[idx % piePalette.length];
+                          const circle = (
+                            <circle
+                              key={r.name}
+                              cx="50"
+                              cy="50"
+                              r={radius}
+                              className={cls}
+                              strokeWidth="12"
+                              fill="none"
+                              strokeDasharray={`${len} ${circumference - len}`}
+                              strokeDashoffset={-offset}
+                              strokeLinecap="butt"
+                            >
+                              <title>
+                                {r.name}: {r.total} ({t('problemType.request')}: {r.requests}, {t('problemType.incident')}: {r.incidents})
+                              </title>
+                            </circle>
+                          );
+                          offset += len;
+                          return circle;
+                        });
+                      })()}
+                    </g>
+                  </svg>
+
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">{t('dashboard.pieTotal')}</div>
+                    <div className="mt-0.5 text-2xl font-semibold text-slate-900 dark:text-white">{pieTotal}</div>
+                  </div>
+                </div>
+
+                <div className="w-full min-w-0">
+                  <div className="grid grid-cols-1 gap-1">
+                    {pieRows.map((r, idx) => (
+                      <div
+                        key={r.name}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white/40 px-2 py-1 text-[10px] backdrop-blur dark:border-white/10 dark:bg-white/5"
+                      >
+                        <div className="min-w-0 flex items-center gap-2">
+                          <span
+                            className={[
+                              'h-2 w-2 shrink-0 rounded-full',
+                              // map stroke palette to a matching bg for the legend dot
+                              idx % piePalette.length === 0
+                                ? 'bg-sky-500/70 dark:bg-sky-400/45'
+                                : idx % piePalette.length === 1
+                                  ? 'bg-rose-500/70 dark:bg-rose-400/45'
+                                  : idx % piePalette.length === 2
+                                    ? 'bg-emerald-500/70 dark:bg-emerald-400/45'
+                                    : idx % piePalette.length === 3
+                                      ? 'bg-amber-500/75 dark:bg-amber-400/50'
+                                      : idx % piePalette.length === 4
+                                        ? 'bg-violet-500/70 dark:bg-violet-400/45'
+                                        : idx % piePalette.length === 5
+                                          ? 'bg-cyan-500/70 dark:bg-cyan-400/45'
+                                          : idx % piePalette.length === 6
+                                            ? 'bg-fuchsia-500/70 dark:bg-fuchsia-400/45'
+                                            : 'bg-lime-500/70 dark:bg-lime-400/45'
+                            ].join(' ')}
+                            aria-hidden="true"
+                          />
+                          <div className="min-w-0 truncate font-semibold text-slate-900 dark:text-white">{r.name}</div>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-2">
+                          <div className="text-[10px] font-semibold text-slate-700 dark:text-slate-200">{r.total}</div>
+                          <div className="hidden items-center gap-2 text-[10px] text-slate-600 dark:text-slate-300 sm:flex">
+                            <span className="inline-flex items-center gap-1" title={t('problemType.request')} aria-label={t('problemType.request')}>
+                              <span className="h-2 w-2 rounded-full bg-sky-500/60 dark:bg-sky-400/35" aria-hidden="true" />
+                              <span className="font-semibold text-slate-700 dark:text-slate-200">{r.requests}</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1" title={t('problemType.incident')} aria-label={t('problemType.incident')}>
+                              <span className="h-2 w-2 rounded-full bg-rose-500/60 dark:bg-rose-400/35" aria-hidden="true" />
+                              <span className="font-semibold text-slate-700 dark:text-slate-200">{r.incidents}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : view === 'treemap' ? (
+          <div className="rounded-2xl border border-slate-200/70 bg-white/50 p-4 backdrop-blur dark:border-white/10 dark:bg-white/5">
+            {pieTotal === 0 ? (
+              <div className="text-xs text-slate-600 dark:text-slate-200">{t('dashboard.empty')}</div>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-full max-w-[520px]">
+                  <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">{t('dashboard.pieTotal')}: {pieTotal}</div>
+                  <div className="mt-2 rounded-2xl border border-slate-200/70 bg-white/40 p-2 backdrop-blur dark:border-white/10 dark:bg-white/5">
+                    <svg viewBox="0 0 100 60" className="h-[220px] w-full" role="img" aria-label={t('dashboard.viewTreemap')}>
+                      {(() => {
+                        const rects = buildTreemapLayout(pieRows, 100, 60);
+                        return rects.map((rr, i) => {
+                          const fillCls = treemapFillPalette[i % treemapFillPalette.length];
+                          const canLabel = rr.w >= 18 && rr.h >= 10;
+                          const clipId = `tm-${i}`;
+                          return (
+                            <g key={`${rr.r.name}-${i}`}>
+                              <clipPath id={clipId}>
+                                <rect x={rr.x} y={rr.y} width={rr.w} height={rr.h} rx={2} ry={2} />
+                              </clipPath>
+                              <rect
+                                x={rr.x}
+                                y={rr.y}
+                                width={rr.w}
+                                height={rr.h}
+                                rx={2}
+                                ry={2}
+                                className={[fillCls, 'stroke-slate-200/80 dark:stroke-white/10'].join(' ')}
+                                strokeWidth={0.6}
+                                vectorEffect="non-scaling-stroke"
+                              >
+                                <title>
+                                  {rr.r.name}: {rr.r.total} ({t('problemType.request')}: {rr.r.requests}, {t('problemType.incident')}: {rr.r.incidents})
+                                </title>
+                              </rect>
+                              {canLabel ? (
+                                <g clipPath={`url(#${clipId})`}>
+                                  <text
+                                    x={rr.x + 1.8}
+                                    y={rr.y + 1.8}
+                                    fontSize={3.5}
+                                    className="fill-slate-800/90 dark:fill-slate-100/90"
+                                    dominantBaseline="hanging"
+                                  >
+                                    {rr.r.name}
+                                  </text>
+                                  <text
+                                    x={rr.x + 1.8}
+                                    y={rr.y + 6.3}
+                                    fontSize={3.2}
+                                    className="fill-slate-700/80 dark:fill-slate-200/80"
+                                    dominantBaseline="hanging"
+                                  >
+                                    {rr.r.total}
+                                  </text>
+                                </g>
+                              ) : null}
+                            </g>
+                          );
+                        });
+                      })()}
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="w-full min-w-0">
+                  <div className="grid grid-cols-1 gap-1">
+                    {pieRows.map((r, idx) => (
+                      <div
+                        key={r.name}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white/40 px-2 py-1 text-[10px] backdrop-blur dark:border-white/10 dark:bg-white/5"
+                      >
+                        <div className="min-w-0 flex items-center gap-2">
+                          <span
+                            className={[
+                              'h-2 w-2 shrink-0 rounded-full',
+                              idx % piePalette.length === 0
+                                ? 'bg-sky-500/70 dark:bg-sky-400/45'
+                                : idx % piePalette.length === 1
+                                  ? 'bg-rose-500/70 dark:bg-rose-400/45'
+                                  : idx % piePalette.length === 2
+                                    ? 'bg-emerald-500/70 dark:bg-emerald-400/45'
+                                    : idx % piePalette.length === 3
+                                      ? 'bg-amber-500/75 dark:bg-amber-400/50'
+                                      : idx % piePalette.length === 4
+                                        ? 'bg-violet-500/70 dark:bg-violet-400/45'
+                                        : idx % piePalette.length === 5
+                                          ? 'bg-cyan-500/70 dark:bg-cyan-400/45'
+                                          : idx % piePalette.length === 6
+                                            ? 'bg-fuchsia-500/70 dark:bg-fuchsia-400/45'
+                                            : 'bg-lime-500/70 dark:bg-lime-400/45'
+                            ].join(' ')}
+                            aria-hidden="true"
+                          />
+                          <div className="min-w-0 truncate font-semibold text-slate-900 dark:text-white">{r.name}</div>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-2">
+                          <div className="text-[10px] font-semibold text-slate-700 dark:text-slate-200">{r.total}</div>
+                          <div className="hidden items-center gap-2 text-[10px] text-slate-600 dark:text-slate-300 sm:flex">
+                            <span className="inline-flex items-center gap-1" title={t('problemType.request')} aria-label={t('problemType.request')}>
+                              <span className="h-2 w-2 rounded-full bg-sky-500/60 dark:bg-sky-400/35" aria-hidden="true" />
+                              <span className="font-semibold text-slate-700 dark:text-slate-200">{r.requests}</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1" title={t('problemType.incident')} aria-label={t('problemType.incident')}>
+                              <span className="h-2 w-2 rounded-full bg-rose-500/60 dark:bg-rose-400/35" aria-hidden="true" />
+                              <span className="font-semibold text-slate-700 dark:text-slate-200">{r.incidents}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           rows.map((r) => {

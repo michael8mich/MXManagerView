@@ -10,7 +10,19 @@
     "themeLight": "Light",
     "themeSwitchToDark": "Switch to dark theme",
     "themeSwitchToLight": "Switch to light theme",
-    "usingSampleData": "Using sample data (failed to load /data.json)"
+    "usingSampleData": "Using sample data (failed to load /data.json)",
+    "dataSourceLabel": "Data",
+    "dataSourceMx": "MX API",
+    "dataSourceLocal": "Local",
+    "dataSourceSample": "Sample",
+    "dataSourceMxTitle": "Problems loaded from MX server API",
+    "dataSourceLocalTitle": "Problems loaded from local /data.json",
+    "dataSourceSampleTitle": "Using built-in sample problems",
+    "mxFailedUsingLocal": "MX API failed — using local /data.json",
+    "userLabel": "User",
+    "userTitle": "Windows user from MX",
+    "refresh": "Refresh",
+    "refreshTitle": "Refresh problems and members"
     ,
     "typeFilterLabel": "Type",
     "typeFilterIncident": "Incident",
@@ -56,6 +68,10 @@
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Problems by employee",
+    "viewList": "List",
+    "viewPie": "Pie",
+    "viewTreemap": "Treemap",
+    "pieTotal": "Total",
     "empty": "No employees"
   },
   "problemType": {

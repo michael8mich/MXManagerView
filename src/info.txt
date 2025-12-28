@@ -1,0 +1,20 @@
+ssd app 
+
+
+CREATE VIEW [dbo].[V_mxmanagerview]
+AS
+SELECT dbo.V_users_with_sso.userid, dbo.V_users_with_sso.uuid, dbo.V_users_with_sso.xkey, dbo.V_grpmem.group_uuid, dbo.V_grpmem.group_name, dbo.V_grpmem.member_name, dbo.V_grpmem.member_uuid, 
+                  dbo.V_grpmem.inactive
+FROM     dbo.V_grpmem LEFT OUTER JOIN
+                  dbo.V_users_with_sso ON dbo.V_grpmem.member_uuid = dbo.V_users_with_sso.uuid
+
+GO
+
+SELECT dbo.usp_contact.c_acctyp_id AS access_type, dbo.hex(dbo.usp_contact.contact_uuid) AS uuid, dbo.ca_contact.userid, dbo.ca_contact.first_name, dbo.ca_contact.last_name, 
+                  dbo.ca_contact.alternate_identifier AS contact_num, dbo.ca_contact.email_address, dbo.ca_contact.pri_phone_number, dbo.ca_contact.alt_phone_number, 
+                  dbo.ca_contact.last_name + ' ' + ISNULL(dbo.ca_contact.first_name, N'') AS combo_name, CASE WHEN inactive = 1 THEN '{"id": 0, "name": "Inactive"}' ELSE '{"id": 1, "name": "Active"}' END AS active, 
+                  dbo.ca_contact.contact_type, dbo.usp_contact.z_list_view, dbo.z_sso.timestamp, dbo.z_sso.username, dbo.z_sso.xkey, dbo.ca_contact.inactive, dbo.usp_contact.contact_uuid, dbo.usp_contact.z_role, 
+                  dbo.hex(dbo.ca_contact.location_uuid) AS location, dbo.hex(dbo.ca_contact.organization_uuid) AS organization
+FROM     dbo.usp_contact RIGHT OUTER JOIN
+                  dbo.ca_contact ON dbo.usp_contact.contact_uuid = dbo.ca_contact.contact_uuid LEFT OUTER JOIN
+                  dbo.z_sso ON dbo.ca_contact.userid = dbo.z_sso.username
