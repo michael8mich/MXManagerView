@@ -58,6 +58,13 @@ function formatOpenedInfo(t: TFn, problem: Problem): { openedText: string; ageTe
   return { openedText, ageText };
 }
 
+function formatDateTimeFromEpochSeconds(epochSeconds: number): string {
+  const d = new Date(epochSeconds * 1000);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 function priorityRank(priority: Problem['priority']) {
   switch (priority) {
     case 'P0':
@@ -124,6 +131,133 @@ function chipTone(kind: 'priority' | 'status' | 'type', value: string) {
     default:
       return 'border-slate-500/25 bg-slate-500/10 text-slate-800 dark:text-slate-200';
   }
+}
+
+function problemTypeTone(value: string) {
+  switch (value) {
+    case 'R':
+      return 'border-sky-500/25 bg-sky-500/10 text-sky-800 dark:text-sky-200';
+    case 'I':
+      return 'border-rose-500/25 bg-rose-500/10 text-rose-800 dark:text-rose-200';
+    default:
+      return 'border-slate-500/25 bg-slate-500/10 text-slate-800 dark:text-slate-200';
+  }
+}
+
+function problemTypeChipBg(value: string) {
+  switch (value) {
+    case 'R':
+      return 'bg-gradient-to-br from-sky-500/20 via-white/40 to-indigo-500/15 dark:from-sky-400/12 dark:via-white/5 dark:to-indigo-400/10';
+    case 'I':
+      return 'bg-gradient-to-br from-rose-500/20 via-white/40 to-amber-500/15 dark:from-rose-400/12 dark:via-white/5 dark:to-amber-400/10';
+    default:
+      return 'bg-white/60 dark:bg-white/5';
+  }
+}
+
+function ProblemTypeIcon({ type }: { type: string }) {
+  if (type === 'R') {
+    // Request: clipboard-check (custom)
+    return (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+        <path
+          d="M9 4.5h6a1.5 1.5 0 0 1 1.5 1.5V20H7.5V6A1.5 1.5 0 0 1 9 4.5Z"
+          className="stroke-current"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M9 4.5c0-1 1-2 3-2s3 1 3 2"
+          className="stroke-current"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M9.2 12.2l1.6 1.6 3.8-3.8"
+          className="stroke-current"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (type === 'I') {
+    // Incident: siren/alert (custom)
+    return (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+        <path
+          d="M7 11a5 5 0 1 1 10 0v5H7v-5Z"
+          className="stroke-current"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M6 20h12"
+          className="stroke-current"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M12 6v2"
+          className="stroke-current"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M9.5 13.2h5"
+          className="stroke-current"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  return <span className="text-[11px] font-semibold">{type}</span>;
+}
+
+function problemTypeBorder(value: string | undefined) {
+  const t = (value || '').toUpperCase();
+  if (t === 'R') {
+    return {
+      border: 'border-sky-300/80 dark:border-sky-400/25',
+      hoverBorder: 'hover:border-sky-400/80 dark:hover:border-sky-400/35'
+    };
+  }
+  if (t === 'I') {
+    return {
+      border: 'border-rose-300/80 dark:border-rose-400/25',
+      hoverBorder: 'hover:border-rose-400/80 dark:hover:border-rose-400/35'
+    };
+  }
+  return {
+    border: 'border-slate-200/70 dark:border-white/10',
+    hoverBorder: 'hover:border-slate-300 dark:hover:border-white/15'
+  };
+}
+
+function AttachmentsIndicator({ t, count }: { t: TFn; count: number }) {
+  if (!Number.isFinite(count) || count <= 0) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-slate-200/70 bg-white/60 px-2 py-0.5 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+      title={t('tooltip.attachments', { count })}
+      aria-label={t('tooltip.attachments', { count })}
+    >
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true">
+        <path
+          d="M21 11.5l-8.2 8.2a5.5 5.5 0 0 1-7.8-7.8l9-9a3.5 3.5 0 0 1 5 5l-9.2 9.2a1.5 1.5 0 0 1-2.1-2.1L16 7.9"
+          className="stroke-current"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      {count}
+    </span>
+  );
 }
 
 type LanePalette = {
@@ -347,13 +481,58 @@ function DroppableLane({ lane, problems }: { lane: Lane; problems: Problem[] }) 
   );
 }
 
+function AgeMiniChart({ t, problem }: { t: TFn; problem: Problem }) {
+  const epoch = problem.openedAtEpochSeconds;
+  if (typeof epoch !== 'number') return null;
+  const openedMs = epoch * 1000;
+  if (!Number.isFinite(openedMs)) return null;
+
+  const ageMs = Math.max(0, Date.now() - openedMs);
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  const maxDays = 30;
+  const pct = clamp((ageDays / maxDays) * 100, 0, 100);
+
+  const tone = ageDays >= 7
+    ? 'bg-rose-500/60 dark:bg-rose-400/35'
+    : ageDays >= 2
+      ? 'bg-amber-500/60 dark:bg-amber-400/35'
+      : 'bg-emerald-500/60 dark:bg-emerald-400/35';
+
+  const ageText = formatAgeFromMs(t, ageMs);
+
+  return (
+    <div
+      className="flex items-center gap-1"
+      title={`${t('tooltip.age')}: ${ageText}`}
+      aria-label={`${t('tooltip.age')}: ${ageText}`}
+    >
+      <div className="h-2 w-10 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
+        <div className={['h-full rounded-full', tone].join(' ')} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function ProblemCard({ problem }: { problem: Problem }) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: problem.id
   });
 
+  function mflowUrlForProblem(p: Problem): string | null {
+    const recordNumber = p.recordNumber;
+    if (typeof recordNumber !== 'number' || !Number.isFinite(recordNumber)) return null;
+
+    const type = (p.problemType || '').toUpperCase();
+    const path = type === 'R' ? 'crdtl' : type === 'I' ? 'indtl' : null;
+    if (!path) return null;
+
+    const base = (import.meta as any).env?.VITE_MFLOW_BASE_URL || 'http://mx/mFlow';
+    return `${String(base).replace(/\/$/, '')}/#/cr/${path}/${recordNumber}`;
+  }
+
   const isTeamQueue = problem.owner.type === 'team';
+  const typeBorder = problemTypeBorder(problem.problemType);
 
   const closeTimerRef = useRef<number | null>(null);
   const [tooltip, setTooltip] = useState<
@@ -361,6 +540,9 @@ function ProblemCard({ problem }: { problem: Problem }) {
         open: true;
         title: string;
         opened?: string;
+        lastUpdated?: string;
+        lastUpdatedAge?: string;
+        lastUpdatedBy?: string;
         category?: string;
         customer?: string;
         age?: string;
@@ -386,11 +568,31 @@ function ProblemCard({ problem }: { problem: Problem }) {
     const description =
       problem.description && problem.description.trim().length ? problem.description : t('tooltip.noDescription');
     const openedInfo = formatOpenedInfo(t, problem);
+    const lastUpdated =
+      typeof problem.lastModifiedAtEpochSeconds === 'number'
+        ? formatDateTimeFromEpochSeconds(problem.lastModifiedAtEpochSeconds)
+        : undefined;
+
+    const lastUpdatedAge = (() => {
+      const epoch = problem.lastModifiedAtEpochSeconds;
+      if (typeof epoch !== 'number') return undefined;
+      const updatedMs = epoch * 1000;
+      if (!Number.isFinite(updatedMs)) return undefined;
+      const ageMs = Math.max(0, Date.now() - updatedMs);
+      return formatAgeFromMs(t, ageMs);
+    })();
+    const lastUpdatedBy =
+      problem.lastModifiedByName && problem.lastModifiedByName.trim().length
+        ? problem.lastModifiedByName
+        : undefined;
 
     setTooltip({
       open: true,
       title: problem.title,
       opened: openedInfo?.openedText,
+      lastUpdated: lastUpdated && lastUpdated.length ? lastUpdated : undefined,
+      lastUpdatedAge: lastUpdatedAge && lastUpdatedAge.length ? lastUpdatedAge : undefined,
+      lastUpdatedBy,
       category: problem.categoryFullName && problem.categoryFullName.trim().length ? problem.categoryFullName : undefined,
       customer: problem.customerName && problem.customerName.trim().length ? problem.customerName : undefined,
       age: openedInfo?.ageText,
@@ -403,32 +605,58 @@ function ProblemCard({ problem }: { problem: Problem }) {
     transform: CSS.Translate.toString(transform)
   };
 
+  const mflowUrl = mflowUrlForProblem(problem);
+  const titleMatch = problem.title.match(/^#(\S+)\s+(.*)$/);
+  const displayRef = titleMatch?.[1] ?? (typeof problem.recordNumber === 'number' ? String(problem.recordNumber) : null);
+  const displayTitle = titleMatch?.[2] ?? problem.title;
+
   return (
     <article
       ref={setNodeRef}
       className={[
         'min-h-[88px] rounded-2xl border p-3 text-left shadow-sm backdrop-blur',
-        isTeamQueue
-          ? 'border-rose-200/80 bg-rose-50/70'
-          : 'border-slate-200/70 bg-white/80',
-        'dark:border-white/10 dark:bg-white/5 dark:shadow-black/20',
+        typeBorder.border,
+        isTeamQueue ? 'bg-rose-50/70' : 'bg-white/80',
+        'dark:bg-white/5 dark:shadow-black/20',
         'cursor-grab active:cursor-grabbing',
         isTeamQueue
-          ? 'transition-colors hover:bg-rose-50 hover:border-rose-300 hover:shadow-md dark:hover:bg-rose-500/10 dark:hover:border-rose-400/25'
-          : 'transition-colors hover:bg-white hover:border-slate-300 hover:shadow-md dark:hover:bg-white/10 dark:hover:border-white/15',
+          ? ['transition-colors hover:bg-rose-50 hover:shadow-md dark:hover:bg-rose-500/10', typeBorder.hoverBorder].join(' ')
+          : ['transition-colors hover:bg-white hover:shadow-md dark:hover:bg-white/10', typeBorder.hoverBorder].join(' '),
         isDragging ? 'opacity-40' : ''
       ].join(' ')}
       style={style}
       {...listeners}
       {...attributes}
     >
-      <div className="text-sm font-semibold leading-snug text-slate-900 dark:text-white">{problem.title}</div>
+      <div className="text-sm font-semibold leading-snug text-slate-900 dark:text-white">
+        {displayRef ? (
+          mflowUrl ? (
+            <a
+              href={mflowUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mr-2 inline-flex items-center rounded-full border border-slate-200/70 bg-white/60 px-2 py-0.5 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/40 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Open ${displayRef}`}
+              title={mflowUrl}
+            >
+              #{displayRef}
+            </a>
+          ) : (
+            <span className="mr-2 inline-flex items-center rounded-full border border-slate-200/70 bg-white/60 px-2 py-0.5 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+              #{displayRef}
+            </span>
+          )
+        ) : null}
+        <span>{displayTitle}</span>
+      </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <div className="group relative">
           <button
             type="button"
             className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-200/70 bg-white/60 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/40 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
-            aria-label={problem.description ? `${t('tooltip.pill')}: ${problem.title}` : `${t('tooltip.pill')}: ${problem.title}`}
+            aria-label={`${t('tooltip.pill')}: ${problem.title}`}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             onPointerEnter={(e) => {
@@ -445,14 +673,45 @@ function ProblemCard({ problem }: { problem: Problem }) {
             i
           </button>
         </div>
-        <span
-          className={[
-            'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]',
-            chipTone('status', problem.status)
-          ].join(' ')}
-        >
-          {problem.statusLabel ?? problem.status}
-        </span>
+        <div className="flex items-center gap-2">
+          {problem.problemType ? (
+            <span
+              className={[
+                'inline-flex h-6 w-6 items-center justify-center rounded-full border shadow-sm backdrop-blur',
+                problemTypeTone(problem.problemType),
+                problemTypeChipBg(problem.problemType)
+              ].join(' ')}
+              title={
+                problem.problemType === 'R'
+                  ? t('problemType.request')
+                  : problem.problemType === 'I'
+                    ? t('problemType.incident')
+                    : problem.problemType
+              }
+              aria-label={
+                problem.problemType === 'R'
+                  ? t('problemType.request')
+                  : problem.problemType === 'I'
+                    ? t('problemType.incident')
+                    : problem.problemType
+              }
+            >
+              <ProblemTypeIcon type={problem.problemType} />
+            </span>
+          ) : null}
+
+          <AttachmentsIndicator t={t} count={problem.attachmentsCount ?? 0} />
+
+          <AgeMiniChart t={t} problem={problem} />
+          <span
+            className={[
+              'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]',
+              chipTone('status', problem.status)
+            ].join(' ')}
+          >
+            {problem.statusLabel ?? problem.status}
+          </span>
+        </div>
       </div>
 
       {tooltip.open
@@ -488,13 +747,37 @@ function ProblemCard({ problem }: { problem: Problem }) {
                     </div>
                   </div>
 
-                  {(tooltip.opened || tooltip.category || tooltip.customer || tooltip.age) ? (
+                  {(tooltip.opened || tooltip.lastUpdated || tooltip.lastUpdatedBy || tooltip.category || tooltip.customer || tooltip.age) ? (
                     <div className="mt-3 rounded-2xl border border-slate-200/70 bg-slate-50/60 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
                       <dl className="grid grid-cols-[92px_1fr] gap-x-3 gap-y-1">
                         {tooltip.opened ? (
                           <>
                             <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.opened')}</dt>
                             <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.opened}</dd>
+                          </>
+                        ) : null}
+                        {tooltip.age ? (
+                          <>
+                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.age')}</dt>
+                            <dd className="break-words text-slate-900 dark:text-slate-50">{t('tooltip.ageValue', { age: tooltip.age })}</dd>
+                          </>
+                        ) : null}
+                        {tooltip.lastUpdated ? (
+                          <>
+                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.lastUpdated')}</dt>
+                            <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.lastUpdated}</dd>
+                          </>
+                        ) : null}
+                        {tooltip.lastUpdatedAge ? (
+                          <>
+                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.lastUpdatedAge')}</dt>
+                            <dd className="break-words text-slate-900 dark:text-slate-50">{t('tooltip.lastUpdatedAgeValue', { age: tooltip.lastUpdatedAge })}</dd>
+                          </>
+                        ) : null}
+                        {tooltip.lastUpdatedBy ? (
+                          <>
+                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.lastUpdatedBy')}</dt>
+                            <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.lastUpdatedBy}</dd>
                           </>
                         ) : null}
                         {tooltip.category ? (
@@ -507,12 +790,6 @@ function ProblemCard({ problem }: { problem: Problem }) {
                           <>
                             <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.customer')}</dt>
                             <dd className="break-words text-slate-900 dark:text-slate-50">{tooltip.customer}</dd>
-                          </>
-                        ) : null}
-                        {tooltip.age ? (
-                          <>
-                            <dt className="text-[11px] font-semibold text-slate-500 dark:text-slate-300">{t('tooltip.age')}</dt>
-                            <dd className="break-words text-slate-900 dark:text-slate-50">{t('tooltip.ageValue', { age: tooltip.age })}</dd>
                           </>
                         ) : null}
                       </dl>
@@ -541,9 +818,13 @@ function ProblemCard({ problem }: { problem: Problem }) {
   );
 }
 
-function DashboardCard({ rows }: { rows: Array<{ name: string; count: number }> }) {
+function DashboardCard({
+  rows
+}: {
+  rows: Array<{ name: string; total: number; requests: number; incidents: number }>;
+}) {
   const { t } = useTranslation();
-  const max = rows.reduce((m, r) => Math.max(m, r.count), 0);
+  const max = rows.reduce((m, r) => Math.max(m, r.total), 0);
 
   return (
     <section
@@ -566,19 +847,42 @@ function DashboardCard({ rows }: { rows: Array<{ name: string; count: number }> 
           </div>
         ) : (
           rows.map((r) => {
-            const pct = max > 0 ? Math.round((r.count / max) * 100) : 0;
+            const pct = max > 0 ? Math.round((r.total / max) * 100) : 0;
+            const total = r.total;
+            const reqPct = total > 0 ? Math.round((r.requests / total) * 100) : 0;
+            const incPct = total > 0 ? Math.round((r.incidents / total) * 100) : 0;
             return (
               <div key={r.name} className="rounded-2xl border border-slate-200/70 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
                 <div className="flex items-baseline justify-between gap-3">
                   <div className="min-w-0 truncate text-xs font-semibold text-slate-900 dark:text-white">{r.name}</div>
-                  <div className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-200">{r.count}</div>
+                  <div className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-200">{r.total}</div>
                 </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-indigo-500/60 dark:bg-indigo-400/40"
-                    style={{ width: `${pct}%` }}
-                    aria-hidden="true"
-                  />
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
+                    <div className="h-full" style={{ width: `${pct}%` }} aria-hidden="true">
+                      <div className="flex h-full w-full">
+                        <div
+                          className="h-full bg-sky-500/60 dark:bg-sky-400/35"
+                          style={{ width: `${reqPct}%` }}
+                        />
+                        <div
+                          className="h-full bg-rose-500/60 dark:bg-rose-400/35"
+                          style={{ width: `${incPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                    <span className="inline-flex items-center gap-1" title={t('problemType.request')} aria-label={t('problemType.request')}>
+                      <span className="h-2 w-2 rounded-full bg-sky-500/60 dark:bg-sky-400/35" aria-hidden="true" />
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{r.requests}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1" title={t('problemType.incident')} aria-label={t('problemType.incident')}>
+                      <span className="h-2 w-2 rounded-full bg-rose-500/60 dark:bg-rose-400/35" aria-hidden="true" />
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{r.incidents}</span>
+                    </span>
+                  </div>
                 </div>
               </div>
             );
@@ -589,7 +893,7 @@ function DashboardCard({ rows }: { rows: Array<{ name: string; count: number }> 
   );
 }
 
-export default function Board({ model }: { model: Model }) {
+export default function Board({ model, typeFilter }: { model: Model; typeFilter: 'both' | 'incident' | 'problem' }) {
   const { t } = useTranslation();
   const [problems, setProblems] = useState<Problem[]>(model.problems);
   const [activeProblemId, setActiveProblemId] = useState<string | null>(null);
@@ -606,6 +910,12 @@ export default function Board({ model }: { model: Model }) {
   const board = model.boards[0];
   const lanes = board.lanes;
 
+  const visibleProblems = useMemo(() => {
+    if (typeFilter === 'both') return problems;
+    const want = typeFilter === 'incident' ? 'I' : 'R';
+    return problems.filter((p) => (p.problemType || '').toUpperCase() === want);
+  }, [problems, typeFilter]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 6 }
@@ -615,7 +925,7 @@ export default function Board({ model }: { model: Model }) {
   const problemsByLane = useMemo(() => {
     const map = new Map<string, Problem[]>();
     for (const lane of lanes) map.set(lane.id, []);
-    for (const p of problems) {
+    for (const p of visibleProblems) {
       const list = map.get(p.currentLaneId);
       if (list) list.push(p);
     }
@@ -632,7 +942,7 @@ export default function Board({ model }: { model: Model }) {
       map.set(laneId, list);
     }
     return map;
-  }, [problems, lanes]);
+  }, [visibleProblems, lanes]);
 
   const sortedLanes = useMemo(() => {
     const laneCount = (laneId: string) => problemsByLane.get(laneId)?.length ?? 0;
@@ -654,9 +964,20 @@ export default function Board({ model }: { model: Model }) {
   const dashboardRows = useMemo(() => {
     return lanes
       .filter((l) => l.assigneeType === 'employee')
-      .map((l) => ({ name: l.title, count: problemsByLane.get(l.id)?.length ?? 0 }))
+      .map((l) => {
+        const list = problemsByLane.get(l.id) ?? [];
+        let requests = 0;
+        let incidents = 0;
+        for (const p of list) {
+          const t = (p.problemType || '').toUpperCase();
+          if (t === 'I') incidents += 1;
+          else if (t === 'R') requests += 1;
+        }
+        const total = list.length;
+        return { name: l.title, total, requests, incidents };
+      })
       .sort((a, b) => {
-        const diff = b.count - a.count;
+        const diff = b.total - a.total;
         if (diff !== 0) return diff;
         return a.name.localeCompare(b.name);
       });

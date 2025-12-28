@@ -9,3 +9,71 @@
     @apply bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100;
   }
 }
+
+@layer utilities {
+  @keyframes mx-plane-takeoff {
+    0% {
+      transform: translate(-18vw, 18vh) rotate(-12deg) scale(0.95);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    55% {
+      transform: translate(12vw, 6vh) rotate(-6deg) scale(1);
+    }
+    100% {
+      transform: translate(58vw, -34vh) rotate(-18deg) scale(1.05);
+      opacity: 1;
+    }
+  }
+
+  @keyframes mx-trail {
+    0% {
+      transform: scaleX(0);
+      opacity: 0;
+    }
+    15% {
+      opacity: 0.75;
+    }
+    100% {
+      transform: scaleX(1);
+      opacity: 0;
+    }
+  }
+
+  @keyframes mx-screensaver-kenburns {
+    0% {
+      transform: scale(1) translate3d(0, 0, 0);
+      filter: saturate(1.05) contrast(1.05);
+    }
+    100% {
+      transform: scale(1.08) translate3d(-2.5%, -1.5%, 0);
+      filter: saturate(1.1) contrast(1.1);
+    }
+  }
+
+  .mx-planeTakeoff {
+    animation: mx-plane-takeoff 5s ease-in-out both;
+    will-change: transform, opacity;
+  }
+
+  .mx-planeTrail {
+    transform-origin: left center;
+    animation: mx-trail 5s ease-out both;
+    will-change: transform, opacity;
+  }
+
+  .mx-screensaverBg {
+    animation: mx-screensaver-kenburns 3s ease-in-out both;
+    will-change: transform, filter;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mx-planeTakeoff,
+    .mx-planeTrail,
+    .mx-screensaverBg {
+      animation: none;
+    }
+  }
+}

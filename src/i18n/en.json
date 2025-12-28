@@ -8,7 +8,14 @@
     "themeLabel": "Theme",
     "themeDark": "Dark",
     "themeLight": "Light",
+    "themeSwitchToDark": "Switch to dark theme",
+    "themeSwitchToLight": "Switch to light theme",
     "usingSampleData": "Using sample data (failed to load /data.json)"
+    ,
+    "typeFilterLabel": "Type",
+    "typeFilterIncident": "Incident",
+    "typeFilterProblem": "Problem",
+    "typeFilterBoth": "Both"
   },
   "lane": {
     "teamQueueTitle": "{{team}} Queue",
@@ -32,6 +39,11 @@
     "pill": "Info",
     "sectionProblem": "Problem",
     "opened": "Opened",
+    "lastUpdated": "Last update",
+    "lastUpdatedAge": "Since update",
+    "lastUpdatedAgeValue": "{{age}} ago",
+    "lastUpdatedBy": "Updated by",
+    "attachments": "Attachments: {{count}}",
     "category": "Category",
     "customer": "Customer",
     "age": "Age",
@@ -43,6 +55,10 @@
     "title": "Dashboard",
     "subtitle": "Problems by employee",
     "empty": "No employees"
+  },
+  "problemType": {
+    "request": "Request",
+    "incident": "Incident"
   },
   "duration": {
     "y_one": "{{count}} year",

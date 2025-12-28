@@ -19,12 +19,15 @@ type PublicProblem = {
   open_date?: number | null;
   category_name?: string | null;
   customer_name?: string | null;
+  attmnts?: number | null;
   group_id?: string | null;
   group_name?: string | null;
   assignee_id?: string | null;
   assignee_name?: string | null;
   priority?: number | null;
   type?: string | null;
+  last_mod_dt?: number | null;
+  last_mod_by_name?: string | null;
   category_name_first?: string | null;
   asset_name?: string | null;
 };
@@ -260,15 +263,33 @@ export function modelFromPublicData(
       const createdAt = toIsoFromEpochSeconds(p.open_date ?? null);
       const openedAtEpochSeconds = typeof p.open_date === 'number' ? p.open_date : undefined;
 
+      const problemType = typeof p.type === 'string' && p.type.trim().length ? p.type.trim().toUpperCase() : undefined;
+
+      const attachmentsCount = typeof p.attmnts === 'number' && Number.isFinite(p.attmnts) ? Math.max(0, p.attmnts) : 0;
+
+      const lastModifiedAtEpochSeconds = typeof p.last_mod_dt === 'number' ? p.last_mod_dt : undefined;
+      const lastModifiedAtIso = typeof lastModifiedAtEpochSeconds === 'number'
+        ? toIsoFromEpochSeconds(lastModifiedAtEpochSeconds)
+        : undefined;
+      const lastModifiedByName = typeof p.last_mod_by_name === 'string' && p.last_mod_by_name.trim().length
+        ? p.last_mod_by_name.trim()
+        : undefined;
+
       const created: Problem = {
         id,
+        recordNumber: typeof p.id === 'number' && Number.isFinite(p.id) ? p.id : undefined,
         title: safeTitle(p),
         priority,
+        problemType,
+        attachmentsCount,
         status,
         statusLabel: p.status_name ?? undefined,
         description: safeDescription(p),
         openedAtEpochSeconds,
         openedAtIso: createdAt,
+        lastModifiedAtEpochSeconds,
+        lastModifiedAtIso,
+        lastModifiedByName,
         categoryFullName: safeCategoryFullName(p),
         customerName: safeCustomerName(p),
         owner,

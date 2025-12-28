@@ -18,13 +18,19 @@ export interface ProblemHistoryEntry {
 
 export interface Problem {
   id: string;
+  recordNumber?: number;
   title: string;
   priority: Priority;
+  problemType?: string;
+  attachmentsCount?: number;
   status: ProblemStatus;
   statusLabel?: string;
   description?: string;
   openedAtEpochSeconds?: number;
   openedAtIso?: string;
+  lastModifiedAtEpochSeconds?: number;
+  lastModifiedAtIso?: string;
+  lastModifiedByName?: string;
   categoryFullName?: string;
   customerName?: string;
   owner: OwnerRef;

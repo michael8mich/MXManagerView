@@ -8,7 +8,13 @@
     "themeLabel": "ערכת נושא",
     "themeDark": "כהה",
     "themeLight": "בהירה",
-    "usingSampleData": "מציג נתוני דוגמה (נכשל בטעינת ‎/data.json)"
+    "themeSwitchToDark": "החלף לערכת נושא כהה",
+    "themeSwitchToLight": "החלף לערכת נושא בהירה",
+    "usingSampleData": "מציג נתוני דוגמה (נכשל בטעינת ‎/data.json)",
+    "typeFilterLabel": "סוג",
+    "typeFilterIncident": "אירוע",
+    "typeFilterProblem": "בעיה",
+    "typeFilterBoth": "הכל"
   },
   "lane": {
     "teamQueueTitle": "תור {{team}}",
@@ -32,6 +38,11 @@
     "pill": "מידע",
     "sectionProblem": "בעיה",
     "opened": "נפתח",
+    "lastUpdated": "עדכון אחרון",
+    "lastUpdatedAge": "מאז עדכון",
+    "lastUpdatedAgeValue": "לפני {{age}}",
+    "lastUpdatedBy": "עודכן על ידי",
+    "attachments": "קבצים מצורפים: {{count}}",
     "category": "קטגוריה",
     "customer": "לקוח",
     "age": "משך",
@@ -43,6 +54,10 @@
     "title": "לוח בקרה",
     "subtitle": "תקלות לפי עובד",
     "empty": "אין עובדים"
+  },
+  "problemType": {
+    "request": "בקשה",
+    "incident": "אירוע"
   },
   "duration": {
     "y": "{{count}} שנים",
