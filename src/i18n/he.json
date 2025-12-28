@@ -44,7 +44,11 @@
   },
   "message": {
     "moveNotAllowed": "העברה לא מותרת: {{from}} → {{to}}",
-    "movedCount": "הועברו {{count}} תקלות"
+    "movedCount": "הועברו {{count}} תקלות",
+    "saving": "שומר… ({{count}})",
+    "savingOne": "שומר…",
+    "serverUpdateOk": "עודכן בהצלחה",
+    "serverUpdateFailed": "עדכון שרת נכשל"
   },
   "tooltip": {
     "pill": "מידע",

@@ -8,6 +8,10 @@ export default defineConfig({
       '/mxssddql': {
         target: 'http://mx',
         changeOrigin: true
+      },
+      '/MXWebAppProxy': {
+        target: 'http://mx',
+        changeOrigin: true
       }
     }
   }

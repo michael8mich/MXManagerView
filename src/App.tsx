@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Board from './board/Board';
+import { ServerUpdateBanner } from './ServerUpdateBanner';
 import { sampleData } from './model/sampleData';
 import type { Model } from './model/types';
 import {
@@ -103,6 +104,7 @@ export default function App() {
   const [remoteNotice, setRemoteNotice] = useState<'mxFailedUsingLocal' | null>(null);
   const [dataSource, setDataSource] = useState<'mx' | 'local' | 'sample'>(() => 'local');
   const [mxUsername, setMxUsername] = useState<string | null>(null);
+  const [mxAccessKey, setMxAccessKey] = useState<string | null>(null);
   const [publicData, setPublicData] = useState<PublicDataJson | null>(null);
   const [serverGroupUuid, setServerGroupUuid] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -158,7 +160,13 @@ export default function App() {
             } catch {
               loginInfo = null;
             }
+            if (!cancelled) setMxAccessKey(loginInfo?.accessKey ?? null);
+          } else {
+            if (!cancelled) setMxAccessKey(null);
           }
+        }
+        if (!mxUseRemoteApi()) {
+          if (!cancelled) setMxAccessKey(null);
         }
 
         if (mxRemoteMode() === 'all') {
@@ -407,6 +415,7 @@ export default function App() {
     <div className="min-h-screen">
       <PlaneScreensaver visible={showScreensaver} />
       <header className="sticky top-0 z-10 border-b border-slate-200/60 bg-white/60 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/30 dark:shadow-black/20">
+        <ServerUpdateBanner />
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
           <div>
             <div className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
@@ -553,7 +562,7 @@ export default function App() {
             {remoteNotice === 'mxFailedUsingLocal' ? t('app.mxFailedUsingLocal') : remoteNotice}
           </div>
         ) : null}
-        <Board model={model} typeFilter={typeFilter} />
+        <Board model={model} typeFilter={typeFilter} mxAccessKey={mxAccessKey} serverUpdatesEnabled={mxUseRemoteApi()} />
       </main>
 
       <footer className="border-t border-slate-200/60 bg-white/40 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/20">

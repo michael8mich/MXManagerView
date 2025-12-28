@@ -14,8 +14,10 @@ import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { updateMxCrAssignee } from '../api/mxQuery';
 import type { Lane, Model, OwnerRef, Problem } from '../model/types';
 import { isMoveAllowed } from '../model/rules';
+import { showServerUpdateBanner } from '../ServerUpdateBanner';
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
@@ -325,7 +327,8 @@ function LaneColumn({
   isOverBody,
   headerRef,
   bodyRef,
-  moveAllHandle
+  moveAllHandle,
+  isProblemSaving
 }: {
   lane: Lane;
   problems: Problem[];
@@ -335,11 +338,12 @@ function LaneColumn({
   bodyRef: (node: HTMLElement | null) => void;
   moveAllHandle: {
     visible: boolean;
-    attributes: any;
-    listeners: any;
+    attributes: Record<string, unknown>;
+    listeners: Record<string, unknown>;
     setNodeRef: (node: HTMLElement | null) => void;
     isDragging: boolean;
   };
+  isProblemSaving?: (problemId: string) => boolean;
 }) {
   const { t } = useTranslation();
   const isTeamLane = lane.assigneeType === 'team';
@@ -437,14 +441,22 @@ function LaneColumn({
           {t('lane.dropHint')}
         </div>
         {problems.map((p) => (
-          <ProblemCard key={p.id} problem={p} />
+          <ProblemCard key={p.id} problem={p} isSaving={Boolean(isProblemSaving?.(p.id))} />
         ))}
       </div>
     </section>
   );
 }
 
-function DroppableLane({ lane, problems }: { lane: Lane; problems: Problem[] }) {
+function DroppableLane({
+  lane,
+  problems,
+  isProblemSaving
+}: {
+  lane: Lane;
+  problems: Problem[];
+  isProblemSaving?: (problemId: string) => boolean;
+}) {
   const { setNodeRef: headerRef, isOver: isOverHeader } = useDroppable({
     id: `${lane.id}::header`
   });
@@ -470,6 +482,7 @@ function DroppableLane({ lane, problems }: { lane: Lane; problems: Problem[] }) 
       isOverBody={isOverBody}
       headerRef={headerRef}
       bodyRef={bodyRef}
+      isProblemSaving={isProblemSaving}
       moveAllHandle={{
         visible: moveAllEnabled,
         attributes: (moveAllAttributes ?? {}) as unknown as Record<string, unknown>,
@@ -530,7 +543,7 @@ function CountMiniBar({ count }: { count: number }) {
   );
 }
 
-function ProblemCard({ problem }: { problem: Problem }) {
+function ProblemCard({ problem, isSaving }: { problem: Problem; isSaving?: boolean }) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: problem.id
@@ -635,7 +648,7 @@ function ProblemCard({ problem }: { problem: Problem }) {
     <article
       ref={setNodeRef}
       className={[
-        'min-h-[88px] rounded-2xl border p-3 text-left shadow-sm backdrop-blur',
+        'relative min-h-[88px] rounded-2xl border p-3 text-left shadow-sm backdrop-blur',
         typeBorder.border,
         isTeamQueue ? 'bg-rose-50/70' : 'bg-white/80',
         'dark:bg-white/5 dark:shadow-black/20',
@@ -649,6 +662,16 @@ function ProblemCard({ problem }: { problem: Problem }) {
       {...listeners}
       {...attributes}
     >
+      {isSaving ? (
+        <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-slate-200/70 bg-white/70 px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+          <span
+            className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600 dark:border-white/20 dark:border-t-white/70"
+            aria-hidden="true"
+          />
+          <span>{t('message.savingOne')}</span>
+        </div>
+      ) : null}
+
       <div className="text-sm font-semibold leading-snug text-slate-900 dark:text-white">
         {displayRef ? (
           mflowUrl ? (
@@ -1308,19 +1331,46 @@ function DashboardCard({
   );
 }
 
-export default function Board({ model, typeFilter }: { model: Model; typeFilter: 'both' | 'incident' | 'problem' }) {
+export default function Board({
+  model,
+  typeFilter,
+  mxAccessKey,
+  serverUpdatesEnabled
+}: {
+  model: Model;
+  typeFilter: 'both' | 'incident' | 'problem';
+  mxAccessKey?: string | null;
+  serverUpdatesEnabled?: boolean;
+}) {
   const { t } = useTranslation();
   const [problems, setProblems] = useState<Problem[]>(model.problems);
   const [activeProblemId, setActiveProblemId] = useState<string | null>(null);
   const [activeLaneDragId, setActiveLaneDragId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingServerUpdates, setPendingServerUpdates] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     setProblems(model.problems);
     setActiveProblemId(null);
     setActiveLaneDragId(null);
     setMessage(null);
+    setPendingServerUpdates(new Set());
   }, [model]);
+
+  // Overlay removed; pendingCount no longer needed
+
+  function markPending(problemIds: string[], pending: boolean) {
+    const ids = problemIds.map((x) => String(x)).filter((x) => x.trim().length);
+    if (!ids.length) return;
+    setPendingServerUpdates((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (pending) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  }
 
   const board = model.boards[0];
   const lanes = board.lanes;
@@ -1471,6 +1521,13 @@ export default function Board({ model, typeFilter }: { model: Model; typeFilter:
       const now = new Date().toISOString();
       const action = deriveAction(fromOwner, toOwner);
 
+      const canUpdateServer = Boolean(serverUpdatesEnabled) && typeof mxAccessKey === 'string' && mxAccessKey.trim().length;
+      const assigneeUserUuid = toOwner.type === 'employee' ? String(toOwner.id) : null;
+
+      const movedIds = canUpdateServer
+        ? problems.filter((p) => p.currentLaneId === srcLaneId).map((p) => String(p.id))
+        : [];
+
       setProblems((prev) => {
         const srcCount = prev.filter((p) => p.currentLaneId === srcLaneId).length;
         if (srcCount === 0) return prev;
@@ -1497,10 +1554,38 @@ export default function Board({ model, typeFilter }: { model: Model; typeFilter:
           };
         });
       });
+
+      if (movedIds.length) {
+        void (async () => {
+          markPending(movedIds, true);
+          let allOk = true;
+          for (const crId of movedIds) {
+            try {
+              await updateMxCrAssignee({ crId, accessKey: mxAccessKey!.trim(), assigneeUserUuid });
+              markPending([crId], false);
+            } catch {
+              // Best-effort: do not revert bulk moves (too noisy); just notify once.
+              allOk = false;
+              markPending(movedIds, false);
+              setMessage(t('message.serverUpdateFailed'));
+              clearMessageSoon();
+              break;
+            }
+          }
+
+          if (allOk) {
+            markPending(movedIds, false);
+            showServerUpdateBanner();
+          }
+        })();
+      }
       return;
     }
 
     const problemId = activeId;
+
+    const canUpdateServer = Boolean(serverUpdatesEnabled) && typeof mxAccessKey === 'string' && mxAccessKey.trim().length;
+    const originalProblem = canUpdateServer ? problems.find((p) => p.id === problemId) ?? null : null;
 
     setProblems((prev) => {
       const idx = prev.findIndex((p) => p.id === problemId);
@@ -1545,6 +1630,43 @@ export default function Board({ model, typeFilter }: { model: Model; typeFilter:
       next[idx] = updated;
       return next;
     });
+
+    if (canUpdateServer) {
+      const destLane = lanes.find((l) => l.id === destLaneId);
+      if (destLane) {
+        const assigneeUserUuid = destLane.assigneeType === 'employee' ? String(destLane.assigneeId) : null;
+        const crId = problemId;
+        void (async () => {
+          markPending([problemId], true);
+          try {
+            await updateMxCrAssignee({ crId, accessKey: mxAccessKey!.trim(), assigneeUserUuid });
+            markPending([problemId], false);
+            setMessage(t('message.serverUpdateOk'));
+            clearMessageSoon();
+          } catch {
+            // Revert only if the problem is still in the lane we attempted to set.
+            setProblems((prev) => {
+              const idx = prev.findIndex((p) => p.id === problemId);
+              if (idx < 0) return prev;
+
+              const current = prev[idx];
+              if (current.currentLaneId !== destLaneId) return prev;
+
+              if (!originalProblem) return prev;
+
+              const next = prev.slice();
+              next[idx] = originalProblem;
+              return next;
+            });
+
+            setMessage(t('message.serverUpdateFailed'));
+            clearMessageSoon();
+          } finally {
+            markPending([problemId], false);
+          }
+        })();
+      }
+    }
   }
 
   return (
@@ -1567,6 +1689,7 @@ export default function Board({ model, typeFilter }: { model: Model; typeFilter:
               key={lane.id}
               lane={lane}
               problems={problemsByLane.get(lane.id) ?? []}
+              isProblemSaving={(problemId) => pendingServerUpdates.has(problemId)}
             />
           ))}
         </div>

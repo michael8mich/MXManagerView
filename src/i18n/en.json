@@ -45,7 +45,11 @@
   },
   "message": {
     "moveNotAllowed": "Move not allowed: {{from}} → {{to}}",
-    "movedCount": "Moved {{count}} problems"
+    "movedCount": "Moved {{count}} problems",
+    "saving": "Saving… ({{count}})",
+    "savingOne": "Saving…",
+    "serverUpdateOk": "Server updated",
+    "serverUpdateFailed": "Server update failed"
   },
   "tooltip": {
     "pill": "Info",

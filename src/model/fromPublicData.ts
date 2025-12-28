@@ -259,12 +259,12 @@ export function modelFromPublicData(
   });
 
   const referencedAssigneeIds = new Set<string>();
-  const referencedAssigneeNames = new Set<string>();
+  const assigneeNameById = new Map<string, string>();
   for (const p of problemsForGroup) {
     const aid = toId(p.assignee_id);
     if (aid) referencedAssigneeIds.add(aid);
-    if (p.assignee_name && !isTeamQueueAssignee(p.assignee_name, primary.group_name)) {
-      referencedAssigneeNames.add(p.assignee_name);
+    if (aid && p.assignee_name && !isTeamQueueAssignee(p.assignee_name, primary.group_name)) {
+      assigneeNameById.set(aid, String(p.assignee_name));
     }
   }
 
@@ -288,45 +288,19 @@ export function modelFromPublicData(
     teamId: primary.group_uuid
   }));
 
-  // Server-only mode: if grpmem is empty, derive employees from problems.
-  if (employees.length === 0) {
-    const seen = new Set<string>();
-    const derived: Employee[] = [];
-    for (const p of problemsForGroup) {
-      if (!p) continue;
-      const aid = toId(p.assignee_id);
-      if (aid && aid !== primary.group_uuid && !seen.has(aid)) {
-        const name = p.assignee_name ? String(p.assignee_name) : aid;
-        derived.push({ id: aid, name, role: 'employee', teamId: primary.group_uuid });
-        seen.add(aid);
-      }
-      if (!p.assignee_id && p.assignee_name && !isTeamQueueAssignee(p.assignee_name, primary.group_name)) {
-        const key = normName(String(p.assignee_name));
-        const id = `name:${key}`;
-        if (key && !seen.has(id)) {
-          derived.push({ id, name: String(p.assignee_name), role: 'employee', teamId: primary.group_uuid });
-          seen.add(id);
-        }
-      }
-    }
-
-    // Ensure there is at least one manager.
-    if (derived.length) derived[0] = { ...derived[0], role: 'manager' };
-    employees.push(...derived);
+  // If a problem references an assignee_id that is not present in grpmem,
+  // still create an employee lane for it (using the real member_uuid).
+  const employeeByIdInit = new Set(employees.map((e) => e.id));
+  for (const uuid of includedMemberUuids) {
+    if (employeeByIdInit.has(uuid)) continue;
+    const name = memberByUuid.get(uuid)?.member_name ?? assigneeNameById.get(uuid) ?? uuid;
+    employees.push({ id: uuid, name, role: 'employee', teamId: primary.group_uuid });
+    employeeByIdInit.add(uuid);
   }
 
-  // Add "ghost" employees from problem assignee_name if they are not present in grpmem.
-  const existingNameKeys = new Set(employees.map((e) => normName(e.name)));
-  for (const name of referencedAssigneeNames) {
-    const key = normName(name);
-    if (!key || existingNameKeys.has(key)) continue;
-    employees.push({
-      id: `name:${key}`,
-      name,
-      role: 'employee',
-      teamId: primary.group_uuid
-    });
-    existingNameKeys.add(key);
+  // Ensure there is at least one manager.
+  if (employees.length && !employees.some((e) => e.role === 'manager')) {
+    employees[0] = { ...employees[0], role: 'manager' };
   }
 
   const managerId = employees.find((e) => e.role === 'manager')?.id ?? employees[0]?.id ?? 'manager';

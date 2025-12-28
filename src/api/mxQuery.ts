@@ -13,6 +13,7 @@ export type MxLoginUserRow = {
   userid?: string;
   uuid?: string;
   xkey?: string;
+  accesskey?: string;
   group_uuid?: string;
   group_name?: string;
   member_name?: string;
@@ -27,6 +28,7 @@ export type MxLoginUserInfo = {
   groups: Array<{ group_uuid: string; group_name: string; inactive: boolean }>;
   memberUuid?: string;
   memberName?: string;
+  accessKey?: string;
 };
 
 export type MxGroupMemberRow = {
@@ -71,6 +73,31 @@ function asString(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   const s = String(value).trim();
   return s.length ? s : null;
+}
+
+function extractAccessKeyFromRows(rows: Array<Record<string, unknown>>): string | undefined {
+  const preferred = new Set(['xkey', 'x-accesskey', 'x_accesskey', 'xaccesskey', 'accesskey']);
+
+  for (const row of rows) {
+    for (const [k, v] of Object.entries(row)) {
+      const key = k.trim().toLowerCase();
+      if (!preferred.has(key)) continue;
+      const s = asString(v);
+      if (s) return s;
+    }
+  }
+
+  // Fallback: any key that contains "xkey" or "accesskey".
+  for (const row of rows) {
+    for (const [k, v] of Object.entries(row)) {
+      const key = k.trim().toLowerCase();
+      if (!key.includes('xkey') && !key.includes('accesskey')) continue;
+      const s = asString(v);
+      if (s) return s;
+    }
+  }
+
+  return undefined;
 }
 
 export function mxUseRemoteApi(): boolean {
@@ -214,6 +241,7 @@ export async function fetchMxLoginUserInfo(userid: string): Promise<MxLoginUserI
   const count = typeof (json as any)?.count === 'number' ? (json as any).count : rows.length;
   const memberUuid = asString((rows[0] as any)?.member_uuid) ?? asString((rows[0] as any)?.uuid) ?? undefined;
   const memberName = asString((rows[0] as any)?.member_name) ?? undefined;
+  const accessKey = extractAccessKeyFromRows(rows as any);
 
   return {
     userid: user,
@@ -221,8 +249,77 @@ export async function fetchMxLoginUserInfo(userid: string): Promise<MxLoginUserI
     rows,
     groups,
     memberUuid,
-    memberName
+    memberName,
+    accessKey
   };
+}
+
+function normalizeMxUserId(value: string): string {
+  const raw = value.trim();
+  if (!raw.length) return raw;
+  // Expected by MX REST: U'<...>'
+  if (/^U'.*'$/.test(raw)) return raw;
+
+  const stripped = raw.replace(/^U'/, '').replace(/'$/, '').trim();
+
+  // Common UUID-ish / handle formats.
+  const looksHex32 = /^[0-9a-f]{32}$/i.test(stripped);
+  const looksGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stripped);
+  if (looksHex32 || looksGuid) return `U'${stripped}'`;
+
+  // Fallback: still wrap whatever we got.
+  return `U'${stripped}'`;
+}
+
+function normalizeCrId(value: string | number): string {
+  const raw = String(value).trim();
+  // Some sources provide ids like "cr-401103" or "cr:401103".
+  return raw.replace(/^cr\s*[-:]/i, '').trim();
+}
+
+export async function updateMxCrAssignee(params: {
+  crId: string | number;
+  accessKey: string;
+  assigneeUserUuid: string | null;
+}): Promise<unknown> {
+  const base = envString('VITE_MX_WEBAPP_PROXY_URL', '/MXWebAppProxy');
+  const url = `${base.replace(/\/+$/, '')}/cr/${encodeURIComponent(normalizeCrId(params.crId))}`;
+
+  const assignee = params.assigneeUserUuid?.trim() ?? '';
+  if (assignee && /^name:/i.test(assignee)) {
+    throw new Error('MX Update requires member_uuid (got name-based assignee)');
+  }
+
+  const payload = assignee
+    ? {
+        cr: {
+          assignee: {
+            '@id': normalizeMxUserId(assignee)
+          }
+        }
+      }
+    : {
+        cr: {
+          assignee: 'NULL'
+        }
+      };
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      accept: '*/*',
+      'Content-Type': 'application/json',
+      'x-accesskey': params.accessKey
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`MX Update HTTP ${res.status}${text ? `: ${text}` : ''}`);
+  }
+
+  return res.json().catch(() => null);
 }
 
 export async function fetchMxGroupMembers(groupName: string): Promise<MxGroupMemberRow[]> {
