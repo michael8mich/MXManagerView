@@ -18,6 +18,8 @@ import { updateMxCrAssignee } from '../api/mxQuery';
 import type { Lane, Model, OwnerRef, Problem } from '../model/types';
 import { isMoveAllowed } from '../model/rules';
 import { showServerUpdateBanner } from '../ServerUpdateBanner';
+import { AgeMiniChart } from './AgeMiniChart';
+import { LastUpdateMiniChart } from './LastUpdateMiniChart';
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
@@ -494,37 +496,6 @@ function DroppableLane({
   );
 }
 
-function AgeMiniChart({ t, problem }: { t: TFn; problem: Problem }) {
-  const epoch = problem.openedAtEpochSeconds;
-  if (typeof epoch !== 'number') return null;
-  const openedMs = epoch * 1000;
-  if (!Number.isFinite(openedMs)) return null;
-
-  const ageMs = Math.max(0, Date.now() - openedMs);
-  const ageDays = ageMs / (1000 * 60 * 60 * 24);
-  const maxDays = 30;
-  const pct = clamp((ageDays / maxDays) * 100, 0, 100);
-
-  const tone = ageDays >= 7
-    ? 'bg-rose-500/60 dark:bg-rose-400/35'
-    : ageDays >= 2
-      ? 'bg-amber-500/60 dark:bg-amber-400/35'
-      : 'bg-emerald-500/60 dark:bg-emerald-400/35';
-
-  const ageText = formatAgeFromMs(t, ageMs);
-
-  return (
-    <div
-      className="flex items-center gap-1"
-      title={`${t('tooltip.age')}: ${ageText}`}
-      aria-label={`${t('tooltip.age')}: ${ageText}`}
-    >
-      <div className="h-2 w-10 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
-        <div className={['h-full rounded-full', tone].join(' ')} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
 
 function CountMiniBar({ count }: { count: number }) {
   const safe = Number.isFinite(count) ? Math.max(0, count) : 0;
@@ -747,6 +718,8 @@ function ProblemCard({ problem, isSaving }: { problem: Problem; isSaving?: boole
           <AttachmentsIndicator t={t} count={problem.attachmentsCount ?? 0} />
 
           <AgeMiniChart t={t} problem={problem} />
+          {/* Last update mini chart */}
+          <LastUpdateMiniChart t={t} problem={problem} />
           <span
             className={[
               'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]',

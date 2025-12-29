@@ -31,12 +31,14 @@ function PlaneScreensaver({ visible }: { visible: boolean }) {
     let cancelled = false;
     setBgUrl(null);
 
+
     const version = '20251228';
+    const base = (import.meta.env.BASE_URL || '/');
     const candidates = [
-      '/screensaver-plane.jpg',
-      '/screensaver-plane.jpeg',
-      '/screensaver-plane.png',
-      '/screensaver-plane.webp'
+      `${base}screensaver-plane.jpg`,
+      `${base}screensaver-plane.jpeg`,
+      `${base}screensaver-plane.png`,
+      `${base}screensaver-plane.webp`
     ];
 
     (async () => {

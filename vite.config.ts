@@ -2,17 +2,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  base: '/mxmanv/',
   plugins: [react()],
-  server: {
-    proxy: {
-      '/mxssddql': {
-        target: 'http://mx',
-        changeOrigin: true
-      },
-      '/MXWebAppProxy': {
-        target: 'http://mx',
-        changeOrigin: true
-      }
-    }
-  }
 });
