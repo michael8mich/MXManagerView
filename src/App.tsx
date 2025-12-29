@@ -467,6 +467,7 @@ export default function App() {
               >
                 <option value="incident">{t('app.typeFilterIncident')}</option>
                 <option value="problem">{t('app.typeFilterProblem')}</option>
+                <option value="rw">{t('app.typeFilterRW')}</option>
                 <option value="both">{t('app.typeFilterBoth')}</option>
               </select>
             </label>

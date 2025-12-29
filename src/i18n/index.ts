@@ -7,11 +7,8 @@ import he from './he.json';
 export const SUPPORTED_LANGS = ['en', 'he'] as const;
 export type SupportedLang = (typeof SUPPORTED_LANGS)[number];
 
-const saved = (typeof window !== 'undefined' ? window.localStorage.getItem('mxmanv.lang') : null) as
-  | SupportedLang
-  | null;
 
-const initialLang: SupportedLang = saved && SUPPORTED_LANGS.includes(saved) ? saved : 'en';
+const initialLang: SupportedLang = 'he';
 
 void i18n
   .use(initReactI18next)
@@ -21,7 +18,7 @@ void i18n
       he: { translation: he }
     },
     lng: initialLang,
-    fallbackLng: 'en',
+    fallbackLng: 'he',
     interpolation: { escapeValue: false }
   });
 

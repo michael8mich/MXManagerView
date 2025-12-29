@@ -26,6 +26,7 @@
     "typeFilterLabel": "סוג",
     "typeFilterIncident": "אירוע",
     "typeFilterProblem": "בעיה",
+    "typeFilterRW": "בקשת תהליך עבודה",
     "typeFilterBoth": "הכל"
   },
   "lane": {
@@ -79,7 +80,9 @@
   },
   "problemType": {
     "request": "בקשה",
-    "incident": "אירוע"
+    "incident": "אירוע",
+    "workflow": "זרימת עבודה",
+    "requestWorkflow": "בקשת זרימת עבודה"
   },
   "duration": {
     "y": "{{count}} שנים",

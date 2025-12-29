@@ -11,6 +11,7 @@ export type PublicGrpMem = {
 
 type PublicProblem = {
   id: number;
+  sequence?: number;
   ref_num?: string;
   summary?: string;
   description?: string;
@@ -175,7 +176,11 @@ function toIsoFromEpochSeconds(epochSeconds: number | null | undefined): string 
 }
 
 function safeTitle(p: PublicProblem): string {
-  const ref = p.ref_num ? `#${p.ref_num}` : `#${p.id}`;
+  let ref = p.ref_num ? `#${p.ref_num}` : `#${p.id}`;
+  if (typeof (p as any).sequence === 'number' && (p as any).sequence > 0) {
+    const seq = (p as any).sequence;
+    ref = p.ref_num ? `#${p.ref_num}/${seq}` : `#${p.id}/${seq}`;
+  }
   const base = (p.category_name_first || p.summary || p.description || '').trim();
   const trimmed = base.length > 0 ? base : 'Problem';
   const oneLine = trimmed.replace(/\s+/g, ' ').trim();
@@ -361,7 +366,9 @@ export function modelFromPublicData(
 
       const created: Problem = {
         id,
+        wf_id: (p as any).wf_id ?? undefined,
         recordNumber: typeof p.id === 'number' && Number.isFinite(p.id) ? p.id : undefined,
+        sequence: typeof (p as any).sequence === 'number' ? (p as any).sequence : undefined,
         title: safeTitle(p),
         priority,
         problemType,

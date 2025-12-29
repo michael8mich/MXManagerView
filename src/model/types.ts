@@ -18,7 +18,9 @@ export interface ProblemHistoryEntry {
 
 export interface Problem {
   id: string;
+  wf_id?: string | number;
   recordNumber?: number;
+  sequence?: number;
   title: string;
   priority: Priority;
   problemType?: string;

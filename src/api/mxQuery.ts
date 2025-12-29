@@ -124,7 +124,7 @@ export async function fetchMxProblems(params: { groupName?: string }): Promise<a
   if (params.groupName && params.groupName.trim().length) where.group_name = params.groupName;
 
   const body = {
-    __F__: 'v_cr',
+    __F__: 'V_mxmanv_all',
     __S__: '*',
     __PS__: pageSize,
     __O__: ['id'],
@@ -283,26 +283,62 @@ export async function updateMxCrAssignee(params: {
   assigneeUserUuid: string | null;
 }): Promise<unknown> {
   const base = envString('VITE_MX_WEBAPP_PROXY_URL', '/MXWebAppProxy');
-  const url = `${base.replace(/\/+$/, '')}/cr/${encodeURIComponent(normalizeCrId(params.crId))}`;
+  // Support RW (workflow) type: use cr_wf endpoint and wf_id
+  let url: string;
+  let payload: any;
+  let isCrWf = false;
+  // If params has a special flag or type, use cr_wf. Otherwise, default to cr.
+  // For backward compatibility, detect if crId is an object with type/wf_id
 
-  const assignee = params.assigneeUserUuid?.trim() ?? '';
-  if (assignee && /^name:/i.test(assignee)) {
-    throw new Error('MX Update requires member_uuid (got name-based assignee)');
+  let crId = params.crId;
+  let wf_id: string | number | undefined = undefined;
+  let type: string | undefined = undefined;
+  if (typeof crId === 'object' && crId !== null) {
+    // Support: { id, wf_id, type }
+    wf_id = (crId as any).wf_id;
+    type = (crId as any).type;
+    crId = (crId as any).id;
   }
-
-  const payload = assignee
-    ? {
-        cr: {
-          assignee: {
-            '@id': normalizeMxUserId(assignee)
+  if (type === 'RW' && wf_id) {
+    isCrWf = true;
+    url = `${base.replace(/\/+$|$/, '')}/cr_wf/${encodeURIComponent(String(wf_id))}`;
+    const assignee = params.assigneeUserUuid?.trim() ?? '';
+    if (assignee && /^name:/i.test(assignee)) {
+      throw new Error('MX Update requires member_uuid (got name-based assignee)');
+    }
+    payload = assignee
+      ? {
+          cr_wf: {
+            assignee: {
+              '@id': normalizeMxUserId(assignee)
+            }
           }
         }
-      }
-    : {
-        cr: {
-          assignee: 'NULL'
+      : {
+          cr_wf: {
+            assignee: 'NULL'
+          }
+        };
+  } else {
+    url = `${base.replace(/\/+$|$/, '')}/cr/${encodeURIComponent(normalizeCrId(crId))}`;
+    const assignee = params.assigneeUserUuid?.trim() ?? '';
+    if (assignee && /^name:/i.test(assignee)) {
+      throw new Error('MX Update requires member_uuid (got name-based assignee)');
+    }
+    payload = assignee
+      ? {
+          cr: {
+            assignee: {
+              '@id': normalizeMxUserId(assignee)
+            }
+          }
         }
-      };
+      : {
+          cr: {
+            assignee: 'NULL'
+          }
+        };
+  }
 
   const res = await fetch(url, {
     method: 'PUT',
@@ -319,6 +355,7 @@ export async function updateMxCrAssignee(params: {
     throw new Error(`MX Update HTTP ${res.status}${text ? `: ${text}` : ''}`);
   }
 
+  // Return the correct response shape for cr_wf or cr
   return res.json().catch(() => null);
 }
 

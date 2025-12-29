@@ -18,3 +18,29 @@ SELECT dbo.usp_contact.c_acctyp_id AS access_type, dbo.hex(dbo.usp_contact.conta
 FROM     dbo.usp_contact RIGHT OUTER JOIN
                   dbo.ca_contact ON dbo.usp_contact.contact_uuid = dbo.ca_contact.contact_uuid LEFT OUTER JOIN
                   dbo.z_sso ON dbo.ca_contact.userid = dbo.z_sso.username
+
+
+---------------
+CREATE VIEW [dbo].[V_mxmanv_wf_cr]
+AS
+SELECT dbo.crwf.id AS wf_id, dbo.crwf.task, dbo.crwf.sequence, dbo.crwf.start_date, dbo.crwf.description AS wf_description, ca_contact_1.last_name AS assignee_name, dbo.ca_contact.last_name AS group_name, 
+                  dbo.tskty.sym AS category_name_first, dbo.hex(dbo.crwf.assignee) AS assignee_id, dbo.hex(dbo.crwf.group_id) AS group_id, dbo.V_cr.status_name, dbo.V_cr.open_date, dbo.V_cr.category_name, dbo.V_cr.ref_num, 
+                  dbo.V_cr.description, dbo.V_cr.id, dbo.V_cr.wfs, dbo.V_cr.summary, dbo.V_cr.attmnts, dbo.V_cr.customer_name, dbo.V_cr.last_mod_dt, dbo.V_cr.last_mod_by_name, dbo.V_cr.priority, dbo.V_cr.status, 
+                  dbo.V_cr.asset_name, dbo.V_cr.active, dbo.V_cr.type
+FROM     dbo.crwf INNER JOIN
+                  dbo.V_cr ON REPLACE(dbo.crwf.object_id, 'cr:', '') = CAST(dbo.V_cr.id AS varchar(50)) LEFT OUTER JOIN
+                  dbo.tskty ON dbo.crwf.task = dbo.tskty.code LEFT OUTER JOIN
+                  dbo.ca_contact ON dbo.crwf.group_id = dbo.ca_contact.contact_uuid LEFT OUTER JOIN
+                  dbo.ca_contact AS ca_contact_1 ON dbo.crwf.assignee = ca_contact_1.contact_uuid
+WHERE  (dbo.crwf.task NOT IN ('GRPSTART', 'GRPEND')) AND (dbo.crwf.status = 'PEND')
+----------------------
+
+CREATE VIEW [dbo].[V_mxmanv_all]
+AS
+select id, ref_num,summary,cast(description as nvarchar(2000)) as description,status,status_name,open_date,category_name,category_name_first,customer_name,group_id,group_name,assignee_id,assignee_name,priority,type,last_mod_dt,last_mod_by_name,attmnts,wfs,asset_name, active,'' as  wf_id , '' as sequence
+from v_cr
+UNION
+select id, ref_num,summary,concat(cast(wf_description as nvarchar(2000)) , '    ' ,cast(description as nvarchar(1000))) as description ,status,status_name,open_date,category_name,category_name_first,customer_name,group_id,group_name,assignee_id,assignee_name,priority, type + 'W' as type,last_mod_dt,last_mod_by_name,attmnts,wfs,asset_name, active, wf_id, sequence
+ from V_mxmanv_wf_cr
+
+GO

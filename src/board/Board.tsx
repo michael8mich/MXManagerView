@@ -143,6 +143,10 @@ function problemTypeTone(value: string) {
       return 'border-sky-500/25 bg-sky-500/10 text-sky-800 dark:text-sky-200';
     case 'I':
       return 'border-rose-500/25 bg-rose-500/10 text-rose-800 dark:text-rose-200';
+    case 'W':
+      return 'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200';
+    case 'RW':
+      return 'border-fuchsia-500/25 bg-fuchsia-500/10 text-fuchsia-800 dark:text-fuchsia-200';
     default:
       return 'border-slate-500/25 bg-slate-500/10 text-slate-800 dark:text-slate-200';
   }
@@ -154,6 +158,10 @@ function problemTypeChipBg(value: string) {
       return 'bg-gradient-to-br from-sky-500/20 via-white/40 to-indigo-500/15 dark:from-sky-400/12 dark:via-white/5 dark:to-indigo-400/10';
     case 'I':
       return 'bg-gradient-to-br from-rose-500/20 via-white/40 to-amber-500/15 dark:from-rose-400/12 dark:via-white/5 dark:to-amber-400/10';
+    case 'W':
+      return 'bg-gradient-to-br from-amber-500/20 via-white/40 to-lime-500/15 dark:from-amber-400/12 dark:via-white/5 dark:to-lime-400/10';
+    case 'RW':
+      return 'bg-gradient-to-br from-fuchsia-500/20 via-white/40 to-indigo-500/15 dark:from-fuchsia-400/12 dark:via-white/5 dark:to-indigo-400/10';
     default:
       return 'bg-white/60 dark:bg-white/5';
   }
@@ -164,61 +172,47 @@ function ProblemTypeIcon({ type }: { type: string }) {
     // Request: clipboard-check (custom)
     return (
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
-        <path
-          d="M9 4.5h6a1.5 1.5 0 0 1 1.5 1.5V20H7.5V6A1.5 1.5 0 0 1 9 4.5Z"
-          className="stroke-current"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M9 4.5c0-1 1-2 3-2s3 1 3 2"
-          className="stroke-current"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M9.2 12.2l1.6 1.6 3.8-3.8"
-          className="stroke-current"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M9 4.5h6a1.5 1.5 0 0 1 1.5 1.5V20H7.5V6A1.5 1.5 0 0 1 9 4.5Z" className="stroke-current" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M9 4.5c0-1 1-2 3-2s3 1 3 2" className="stroke-current" strokeWidth="2" strokeLinecap="round" />
+        <path d="M9.2 12.2l1.6 1.6 3.8-3.8" className="stroke-current" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
-
   if (type === 'I') {
     // Incident: siren/alert (custom)
     return (
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
-        <path
-          d="M7 11a5 5 0 1 1 10 0v5H7v-5Z"
-          className="stroke-current"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M6 20h12"
-          className="stroke-current"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M12 6v2"
-          className="stroke-current"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M9.5 13.2h5"
-          className="stroke-current"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
+        <path d="M7 11a5 5 0 1 1 10 0v5H7v-5Z" className="stroke-current" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M6 20h12" className="stroke-current" strokeWidth="2" strokeLinecap="round" />
+        <path d="M12 6v2" className="stroke-current" strokeWidth="2" strokeLinecap="round" />
+        <path d="M9.5 13.2h5" className="stroke-current" strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
   }
-
+  if (type === 'W') {
+    // Workflow: detailed gear wheel icon
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+        <g stroke="currentColor" strokeWidth="1.6" fill="none">
+          <circle cx="12" cy="12" r="3.2" />
+          <path d="M12 2.5v2.1M12 19.4v2.1M4.22 4.22l1.49 1.49M18.29 18.29l1.49 1.49M2.5 12h2.1M19.4 12h2.1M4.22 19.78l1.49-1.49M18.29 5.71l1.49-1.49" />
+          <path d="M7.5 12a4.5 4.5 0 0 1 9 0 4.5 4.5 0 0 1-9 0z" opacity=".3" />
+        </g>
+      </svg>
+    );
+  }
+  if (type === 'RW') {
+    // RW: gear wheel icon (same as W)
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+        <g stroke="currentColor" strokeWidth="1.6" fill="none">
+          <circle cx="12" cy="12" r="3.2" />
+          <path d="M12 2.5v2.1M12 19.4v2.1M4.22 4.22l1.49 1.49M18.29 18.29l1.49 1.49M2.5 12h2.1M19.4 12h2.1M4.22 19.78l1.49-1.49M18.29 5.71l1.49-1.49" />
+          <path d="M7.5 12a4.5 4.5 0 0 1 9 0 4.5 4.5 0 0 1-9 0z" opacity=".3" />
+        </g>
+      </svg>
+    );
+  }
   return <span className="text-[11px] font-semibold">{type}</span>;
 }
 
@@ -525,7 +519,12 @@ function ProblemCard({ problem, isSaving }: { problem: Problem; isSaving?: boole
     if (typeof recordNumber !== 'number' || !Number.isFinite(recordNumber)) return null;
 
     const type = (p.problemType || '').toUpperCase();
-    const path = type === 'R' ? 'crdtl' : type === 'I' ? 'indtl' : null;
+    let path: string | null = null;
+    if (type === 'R' || type === 'RW') {
+      path = 'crdtl';
+    } else if (type === 'I') {
+      path = 'indtl';
+    }
     if (!path) return null;
 
     const base = (import.meta as any).env?.VITE_MFLOW_BASE_URL || 'http://mx/mFlow';
@@ -607,7 +606,8 @@ function ProblemCard({ problem, isSaving }: { problem: Problem; isSaving?: boole
   }
 
   const style: import('react').CSSProperties = {
-    transform: CSS.Translate.toString(transform)
+    transform: CSS.Translate.toString(transform),
+    ...(problem.sequence ? { width: 'calc(100% - 10px)' } : {})
   };
 
   const mflowUrl = mflowUrlForProblem(problem);
@@ -621,7 +621,11 @@ function ProblemCard({ problem, isSaving }: { problem: Problem; isSaving?: boole
       className={[
         'relative min-h-[88px] rounded-2xl border p-3 text-left shadow-sm backdrop-blur',
         typeBorder.border,
-        isTeamQueue ? 'bg-rose-50/70' : 'bg-white/80',
+        problem.sequence
+          ? 'bg-gradient-to-br from-indigo-100 via-blue-100 to-sky-100 dark:from-indigo-900 dark:via-blue-900 dark:to-sky-900'
+          : isTeamQueue
+            ? 'bg-rose-50/70'
+            : 'bg-white/80',
         'dark:bg-white/5 dark:shadow-black/20',
         'cursor-grab active:cursor-grabbing',
         isTeamQueue
@@ -697,18 +701,26 @@ function ProblemCard({ problem, isSaving }: { problem: Problem; isSaving?: boole
                 problemTypeChipBg(problem.problemType)
               ].join(' ')}
               title={
-                problem.problemType === 'R'
-                  ? t('problemType.request')
-                  : problem.problemType === 'I'
-                    ? t('problemType.incident')
-                    : problem.problemType
+                problem.problemType === 'RW'
+                  ? t('problemType.requestWorkflow')
+                  : problem.problemType === 'R'
+                    ? t('problemType.request')
+                    : problem.problemType === 'W'
+                      ? t('problemType.workflow')
+                      : problem.problemType === 'I'
+                        ? t('problemType.incident')
+                        : problem.problemType
               }
               aria-label={
-                problem.problemType === 'R'
-                  ? t('problemType.request')
-                  : problem.problemType === 'I'
-                    ? t('problemType.incident')
-                    : problem.problemType
+                problem.problemType === 'RW'
+                  ? t('problemType.requestWorkflow')
+                  : problem.problemType === 'R'
+                    ? t('problemType.request')
+                    : problem.problemType === 'W'
+                      ? t('problemType.workflow')
+                      : problem.problemType === 'I'
+                        ? t('problemType.incident')
+                        : problem.problemType
               }
             >
               <ProblemTypeIcon type={problem.problemType} />
@@ -1350,6 +1362,7 @@ export default function Board({
 
   const visibleProblems = useMemo(() => {
     if (typeFilter === 'both') return problems;
+    if (typeFilter === 'rw') return problems.filter((p) => (p.problemType || '').toUpperCase() === 'RW');
     const want = typeFilter === 'incident' ? 'I' : 'R';
     return problems.filter((p) => (p.problemType || '').toUpperCase() === want);
   }, [problems, typeFilter]);
@@ -1608,7 +1621,11 @@ export default function Board({
       const destLane = lanes.find((l) => l.id === destLaneId);
       if (destLane) {
         const assigneeUserUuid = destLane.assigneeType === 'employee' ? String(destLane.assigneeId) : null;
-        const crId = problemId;
+        const problem = problems.find((p) => p.id === problemId);
+        let crId: any = problemId;
+        if (problem && problem.problemType === 'RW' && problem.wf_id) {
+          crId = { id: problem.id, wf_id: problem.wf_id, type: 'RW' };
+        }
         void (async () => {
           markPending([problemId], true);
           try {

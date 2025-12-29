@@ -27,6 +27,7 @@
     "typeFilterLabel": "Type",
     "typeFilterIncident": "Incident",
     "typeFilterProblem": "Problem",
+    "typeFilterRW": "Request Workflow",
     "typeFilterBoth": "Both"
   },
   "lane": {
@@ -80,7 +81,9 @@
   },
   "problemType": {
     "request": "Request",
-    "incident": "Incident"
+    "incident": "Incident",
+    "workflow": "Workflow",
+    "requestWorkflow": "Request Workflow"
   },
   "duration": {
     "y_one": "{{count}} year",
