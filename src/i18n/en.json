@@ -29,7 +29,8 @@
     "typeFilterProblem": "Problem",
     "typeFilterRW": "Request Workflow",
     "typeFilterCW": "Change Workflow",
-    "typeFilterBoth": "Both"
+    "typeFilterBoth": "Both",
+    "typeFilterAll": "All"
   },
   "lane": {
     "teamQueueTitle": "{{team}} Queue",

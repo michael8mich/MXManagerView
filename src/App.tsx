@@ -1,4 +1,62 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Listbox } from '@headlessui/react';
+// Inline ProblemTypeIcon from Board.tsx for use in select
+function ProblemTypeIcon({ type }: { type: string }) {
+  if (type === 'incident') {
+    // Incident: siren/alert (custom)
+    return (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+        <path d="M7 11a5 5 0 1 1 10 0v5H7v-5Z" className="stroke-current" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M6 20h12" className="stroke-current" strokeWidth="2" strokeLinecap="round" />
+        <path d="M12 6v2" className="stroke-current" strokeWidth="2" strokeLinecap="round" />
+        <path d="M9.5 13.2h5" className="stroke-current" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (type === 'problem') {
+    // Problem: clipboard-check (custom, same as R)
+    return (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+        <path d="M9 4.5h6a1.5 1.5 0 0 1 1.5 1.5V20H7.5V6A1.5 1.5 0 0 1 9 4.5Z" className="stroke-current" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M9 4.5c0-1 1-2 3-2s3 1 3 2" className="stroke-current" strokeWidth="2" strokeLinecap="round" />
+        <path d="M9.2 12.2l1.6 1.6 3.8-3.8" className="stroke-current" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (type === 'rw') {
+    // RW: gear wheel icon
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+        <g stroke="currentColor" strokeWidth="1.6" fill="none">
+          <circle cx="12" cy="12" r="3.2" />
+          <path d="M12 2.5v2.1M12 19.4v2.1M4.22 4.22l1.49 1.49M18.29 18.29l1.49 1.49M2.5 12h2.1M19.4 12h2.1M4.22 19.78l1.49-1.49M18.29 5.71l1.49-1.49" />
+          <path d="M7.5 12a4.5 4.5 0 0 1 9 0 4.5 4.5 0 0 1-9 0z" opacity=".3" />
+        </g>
+      </svg>
+    );
+  }
+  if (type === 'cw') {
+    // CW: wrench icon
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+        <g stroke="currentColor" strokeWidth="1.6" fill="none">
+          <path d="M21 19.3l-6.1-6.1a5.5 5.5 0 0 1-7.8-7.8l1.4 1.4a3.5 3.5 0 0 0 5 5l6.1 6.1a1.5 1.5 0 0 0 2.1-2.1z" />
+          <circle cx="7.5" cy="7.5" r="3.5" opacity=".3" />
+        </g>
+      </svg>
+    );
+  }
+  if (type === 'both') {
+    // Both: show two icons
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        <ProblemTypeIcon type="incident" />
+        <ProblemTypeIcon type="problem" />
+      </span>
+    );
+  }
+  return null;
+}
 import { useTranslation } from 'react-i18next';
 import Board from './board/Board';
 import { ServerUpdateBanner } from './ServerUpdateBanner';
@@ -13,7 +71,6 @@ import {
 } from './model/fromPublicData';
 import i18n, { isRtl, type SupportedLang } from './i18n';
 import {
-  fetchMxGroupMembers,
   fetchMxLoginUserInfo,
   fetchMxProblems,
   fetchMxUsername,
@@ -60,8 +117,9 @@ function PlaneScreensaver({ visible }: { visible: boolean }) {
       console.warn(
         '[MxManagerView] Screensaver image not found. Add one of: public/screensaver-plane.jpg|jpeg|png|webp'
       );
-    })();
-
+    }
+    // End of async IIFE
+    )();
     return () => {
       cancelled = true;
     };
@@ -116,9 +174,9 @@ export default function App() {
     window.localStorage.getItem('mxmanv.group_uuid')
   );
 
-  const [typeFilter, setTypeFilter] = useState<'both' | 'incident' | 'problem'>(() => {
+  const [typeFilter, setTypeFilter] = useState<'both' | 'incident' | 'problem' | 'rw' | 'cw'>(() => {
     const saved = window.localStorage.getItem('mxmanv.typeFilter');
-    return saved === 'incident' || saved === 'problem' || saved === 'both' ? saved : 'both';
+    return saved === 'incident' || saved === 'problem' || saved === 'both' || saved === 'rw' || saved === 'cw' ? saved : 'both';
   });
 
   useEffect(() => {
@@ -187,11 +245,11 @@ export default function App() {
             const groupName = g.find((x) => x.group_uuid === initialGroup)?.group_name;
             const [remoteProblems, rows] = await Promise.all([
               fetchMxProblems({ groupName }),
-              groupName ? fetchMxGroupMembers(groupName) : Promise.resolve([])
+              groupName ? Promise.resolve([]) : Promise.resolve([])
             ]);
             if (cancelled) return;
 
-            const grpmem = rows
+            const grpmem = (rows as import('./model/fromPublicData').PublicGrpMem[])
               .filter((r) => r.group_uuid && r.member_uuid)
               .map(
                 (r) =>
@@ -277,10 +335,10 @@ export default function App() {
           try {
             const [remoteProblems, rows] = await Promise.all([
               fetchMxProblems({ groupName }),
-              fetchMxGroupMembers(groupName)
+              Promise.resolve([])
             ]);
             if (cancelled) return;
-            const grpmem = rows
+            const grpmem = (rows as import('./model/fromPublicData').PublicGrpMem[])
               .filter((r) => r.group_uuid && r.member_uuid)
               .map(
                 (r) =>
@@ -370,10 +428,10 @@ export default function App() {
 
       const [remoteProblems, rows] = await Promise.all([
         fetchMxProblems({ groupName }),
-        fetchMxGroupMembers(groupName)
+        Promise.resolve([])
       ]);
 
-      const grpmem = rows
+      const grpmem = (rows as import('./model/fromPublicData').PublicGrpMem[])
         .filter((r) => r.group_uuid && r.member_uuid)
         .map(
           (r) =>
@@ -431,46 +489,146 @@ export default function App() {
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-2 rounded-full border border-slate-200/70 bg-white/60 px-3 py-1 text-xs text-slate-700 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
               <span className="text-slate-500 dark:text-slate-300">{t('app.langLabel')}</span>
-              <select
-                className="bg-transparent text-xs font-semibold text-slate-900 outline-none dark:text-slate-100"
-                value={lang}
-                onChange={(e) => setLang(e.target.value as SupportedLang)}
-              >
-                <option value="en">{t('language.en')}</option>
-                <option value="he">{t('language.he')}</option>
-              </select>
+              <div className="w-max min-w-[80px]">
+                <Listbox value={lang} onChange={setLang}>
+                  {() => (
+                    <div className="relative w-max min-w-full">
+                      <Listbox.Button className="flex w-max min-w-full items-center gap-1 bg-transparent text-xs font-semibold text-slate-900 outline-none dark:text-slate-100 px-2 py-1 rounded cursor-pointer border border-slate-200/70 dark:border-white/10 whitespace-nowrap">
+                        {lang === 'en' ? (
+                          <span role="img" aria-label="English" className="mr-1">🇬🇧</span>
+                        ) : (
+                          <span role="img" aria-label="Hebrew" className="mr-1">🇮🇱</span>
+                        )}
+                        <span className="whitespace-nowrap min-w-0">
+                          {lang === 'en' && t('language.en')}
+                          {lang === 'he' && t('language.he')}
+                        </span>
+                        <svg className="ml-2 h-3 w-3 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M7 7l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M7 13l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </Listbox.Button>
+                      <Listbox.Options className="absolute z-10 mt-1 w-max min-w-full rounded bg-white dark:bg-slate-900 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none text-xs">
+                        <Listbox.Option value="en" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
+                          <span role="img" aria-label="English">🇬🇧</span> {t('language.en')}
+                        </Listbox.Option>
+                        <Listbox.Option value="he" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
+                          <span role="img" aria-label="Hebrew">🇮🇱</span> {t('language.he')}
+                        </Listbox.Option>
+                      </Listbox.Options>
+                    </div>
+                  )}
+                </Listbox>
+              </div>
             </label>
 
             {groups.length >= 1 ? (
               <label className="flex items-center gap-2 rounded-full border border-slate-200/70 bg-white/60 px-3 py-1 text-xs text-slate-700 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
                 <span className="text-slate-500 dark:text-slate-300">{t('app.teamLabel')}</span>
-                <select
-                  className="bg-transparent text-xs font-semibold text-slate-900 outline-none dark:text-slate-100"
-                  value={selectedGroupUuid ?? ''}
-                  onChange={(e) => setSelectedGroupUuid(e.target.value)}
-                >
-                  {groups.map((g) => (
-                    <option key={g.group_uuid} value={g.group_uuid}>
-                      {g.group_name}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-max min-w-[100px]">
+                  {/* Color palette for team icons */}
+                  {(() => {
+                    const teamColors = [
+                      'text-blue-500',
+                      'text-green-500',
+                      'text-amber-500',
+                      'text-pink-500',
+                      'text-purple-500',
+                      'text-cyan-500',
+                      'text-red-500',
+                      'text-lime-500',
+                      'text-fuchsia-500',
+                      'text-orange-500',
+                    ];
+                    return (
+                      <Listbox value={selectedGroupUuid ?? ''} onChange={setSelectedGroupUuid}>
+                        {() => {
+                          const selectedIdx = groups.findIndex((g) => g.group_uuid === selectedGroupUuid);
+                          const selectedColor = teamColors[selectedIdx % teamColors.length] || 'text-blue-500';
+                          return (
+                            <div className="relative w-max min-w-full">
+                              <Listbox.Button className="flex w-max min-w-full items-center gap-1 bg-transparent text-xs font-semibold text-slate-900 outline-none dark:text-slate-100 px-2 py-1 rounded cursor-pointer border border-slate-200/70 dark:border-white/10 whitespace-nowrap">
+                                <span className={`mr-1 ${selectedColor}`} aria-label="Team">
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="inline align-middle">
+                                    <circle cx="7" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+                                    <circle cx="17" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+                                    <ellipse cx="7" cy="16" rx="5" ry="3" stroke="currentColor" strokeWidth="1.5" />
+                                    <ellipse cx="17" cy="16" rx="5" ry="3" stroke="currentColor" strokeWidth="1.5" />
+                                  </svg>
+                                </span>
+                                <span className="whitespace-nowrap min-w-0">
+                                  {groups.find((g) => g.group_uuid === selectedGroupUuid)?.group_name || ''}
+                                </span>
+                                <svg className="ml-2 h-3 w-3 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                  <path d="M7 7l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  <path d="M7 13l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </Listbox.Button>
+                              <Listbox.Options className="absolute z-10 mt-1 w-max min-w-full rounded bg-white dark:bg-slate-900 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none text-xs">
+                                {groups.map((g, idx) => (
+                                  <Listbox.Option key={g.group_uuid} value={g.group_uuid} className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
+                                    <span className={`${teamColors[idx % teamColors.length]}`} aria-label="Team">
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="inline align-middle">
+                                        <circle cx="7" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+                                        <circle cx="17" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+                                        <ellipse cx="7" cy="16" rx="5" ry="3" stroke="currentColor" strokeWidth="1.5" />
+                                        <ellipse cx="17" cy="16" rx="5" ry="3" stroke="currentColor" strokeWidth="1.5" />
+                                      </svg>
+                                    </span> {g.group_name}
+                                  </Listbox.Option>
+                                ))}
+                              </Listbox.Options>
+                            </div>
+                          );
+                        }}
+                      </Listbox>
+                    );
+                  })()}
+                </div>
               </label>
             ) : null}
 
             <label className="flex items-center gap-2 rounded-full border border-slate-200/70 bg-white/60 px-3 py-1 text-xs text-slate-700 backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
               <span className="text-slate-500 dark:text-slate-300">{t('app.typeFilterLabel')}</span>
-              <select
-                className="bg-transparent text-xs font-semibold text-slate-900 outline-none dark:text-slate-100"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as 'both' | 'incident' | 'problem')}
-              >
-                <option value="incident">{t('app.typeFilterIncident')}</option>
-                <option value="problem">{t('app.typeFilterProblem')}</option>
-                <option value="rw">{t('app.typeFilterRW')}</option>
-                <option value="cw">{t('app.typeFilterCW')}</option>
-                <option value="both">{t('app.typeFilterBoth')}</option>
-              </select>
+              <div className="w-max min-w-[120px]">
+                <Listbox value={typeFilter} onChange={setTypeFilter}>
+                  {() => (
+                    <div className="relative w-max min-w-full">
+                      <Listbox.Button className="flex w-max min-w-full items-center gap-1 bg-transparent text-xs font-semibold text-slate-900 outline-none dark:text-slate-100 px-2 py-1 rounded cursor-pointer border border-slate-200/70 dark:border-white/10 whitespace-nowrap">
+                        <ProblemTypeIcon type={typeFilter} />
+                        <span className="whitespace-nowrap min-w-0">
+                          {typeFilter === 'incident' && t('app.typeFilterIncident')}
+                          {typeFilter === 'problem' && t('app.typeFilterProblem')}
+                          {typeFilter === 'rw' && t('app.typeFilterRW')}
+                          {typeFilter === 'cw' && t('app.typeFilterCW')}
+                          {typeFilter === 'both' && t('app.typeFilterAll')}
+                        </span>
+                        <svg className="ml-2 h-3 w-3 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M7 7l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M7 13l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </Listbox.Button>
+                      <Listbox.Options className="absolute z-10 mt-1 w-max min-w-full rounded bg-white dark:bg-slate-900 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none text-xs">
+                        <Listbox.Option value="incident" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
+                          <ProblemTypeIcon type="incident" /> {t('app.typeFilterIncident')}
+                        </Listbox.Option>
+                        <Listbox.Option value="problem" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
+                          <ProblemTypeIcon type="problem" /> {t('app.typeFilterProblem')}
+                        </Listbox.Option>
+                        <Listbox.Option value="rw" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
+                          <ProblemTypeIcon type="rw" /> {t('app.typeFilterRW')}
+                        </Listbox.Option>
+                        <Listbox.Option value="cw" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
+                          <ProblemTypeIcon type="cw" /> {t('app.typeFilterCW')}
+                        </Listbox.Option>
+                        <Listbox.Option value="both" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
+                          <ProblemTypeIcon type="both" /> {t('app.typeFilterAll')}
+                        </Listbox.Option>
+                      </Listbox.Options>
+                    </div>
+                  )}
+                </Listbox>
+              </div>
             </label>
 
             <div

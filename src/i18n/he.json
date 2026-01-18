@@ -28,7 +28,8 @@
     "typeFilterProblem": "בעיה",
     "typeFilterRW": "בקשת תהליך עבודה",
     "typeFilterCW": "שינוי תהליך עבודה",
-    "typeFilterBoth": "הכל"
+    "typeFilterBoth": "הכל",
+    "typeFilterAll": "הכל"
   },
   "lane": {
     "teamQueueTitle": "תור {{team}}",

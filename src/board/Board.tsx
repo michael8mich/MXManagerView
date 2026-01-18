@@ -1241,7 +1241,6 @@ function DashboardCard({
                                     pointerEvents="all"
                                     tabIndex={0}
                                     aria-label={rr.r.name}
-                                    title={rr.r.name}
                                   >
                                     {(() => {
                                       // Truncate name if too long for the box
@@ -1375,7 +1374,7 @@ export default function Board({
   serverUpdatesEnabled
 }: {
   model: Model;
-  typeFilter: 'both' | 'incident' | 'problem';
+  typeFilter: 'both' | 'incident' | 'problem' | 'rw' | 'cw';
   mxAccessKey?: string | null;
   serverUpdatesEnabled?: boolean;
 }) {

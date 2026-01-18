@@ -20,17 +20,6 @@ export type MxLoginUserRow = {
   member_uuid?: string;
   inactive?: number;
 };
-
-export type MxLoginUserInfo = {
-  userid: string;
-  count: number;
-  rows: MxLoginUserRow[];
-  groups: Array<{ group_uuid: string; group_name: string; inactive: boolean }>;
-  memberUuid?: string;
-  memberName?: string;
-  accessKey?: string;
-};
-
 export type MxGroupMemberRow = {
   group_uuid?: string;
   group_name?: string;
@@ -54,6 +43,17 @@ function envBool(key: string, fallback: boolean): boolean {
   return fallback;
 }
 
+// Type for login user info returned by fetchMxLoginUserInfo
+export type MxLoginUserInfo = {
+  userid: string;
+  count: number;
+  rows: MxLoginUserRow[];
+  groups: { group_uuid: string; group_name: string; inactive: boolean }[];
+  memberUuid?: string;
+  memberName?: string;
+  accessKey?: string;
+};
+
 function envString(key: string, fallback: string): string {
   const v = (import.meta as any).env?.[key];
   return typeof v === 'string' && v.trim().length ? v.trim() : fallback;
@@ -67,7 +67,7 @@ function envNumber(key: string, fallback: number): number {
 
 function asArray(value: unknown): unknown[] | null {
   return Array.isArray(value) ? value : null;
-}
+  }
 
 function asString(value: unknown): string | null {
   if (value === null || value === undefined) return null;
@@ -259,7 +259,6 @@ function normalizeMxUserId(value: string): string {
   if (!raw.length) return raw;
   // Expected by MX REST: U'<...>'
   if (/^U'.*'$/.test(raw)) return raw;
-
   const stripped = raw.replace(/^U'/, '').replace(/'$/, '').trim();
 
   // Common UUID-ish / handle formats.
@@ -291,29 +290,19 @@ export async function updateMxCrAssignee(params: {
   assigneeUserUuid: string | null;
 }): Promise<unknown> {
   const base = envString('VITE_MX_WEBAPP_PROXY_URL', '/MXWebAppProxy');
-  let url: string;
-  let payload: any;
   const { crId, accessKey, assigneeUserUuid } = params;
-  if(typeof crId !== "string") {
 
-  const { id, wf_id, type } = crId;
-  
-  
- 
-  if (wf_id !== undefined && wf_id !== null) {
+  if (typeof crId !== 'string') {
+    const { wf_id, type } = crId;
     // RW type (workflow)
     let server_side_object_type = 'cr_wf';
-    if(type === "CW")
-      server_side_object_type = "wf"
-
-    url = `${base.replace(/\/+$|$/, '')}/${server_side_object_type}/${encodeURIComponent(String(wf_id))}`;
-    
-    
+    if (type === 'CW') server_side_object_type = 'wf';
+    const url = `${base.replace(/\/+$/, '')}/${server_side_object_type}/${encodeURIComponent(String(wf_id))}`;
     const assignee = assigneeUserUuid?.trim() ?? '';
     if (assignee && /^name:/i.test(assignee)) {
       throw new Error('MX Update requires member_uuid (got name-based assignee)');
     }
-    payload = assignee
+    const payload = assignee
       ? {
           [server_side_object_type]: {
             assignee: {
@@ -326,15 +315,28 @@ export async function updateMxCrAssignee(params: {
             assignee: 'NULL'
           }
         };
-  }} else if (crId) {
-
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        accept: '*/*',
+        'Content-Type': 'application/json',
+        'x-accesskey': accessKey
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`MX Update HTTP ${res.status}${text ? `: ${text}` : ''}`);
+    }
+    return res.json().catch(() => null);
+  } else if (crId) {
     // CW type (no workflow)
-    url = `${base.replace(/\/+$|$/, '')}/cr/${encodeURIComponent(normalizeCrId(crId))}`;
+    const url = `${base.replace(/\/+$/, '')}/cr/${encodeURIComponent(normalizeCrId(crId as string))}`;
     const assignee = assigneeUserUuid?.trim() ?? '';
     if (assignee && /^name:/i.test(assignee)) {
       throw new Error('MX Update requires member_uuid (got name-based assignee)');
     }
-    payload = assignee
+    const payload = assignee
       ? {
           cr: {
             assignee: {
@@ -347,59 +349,21 @@ export async function updateMxCrAssignee(params: {
             assignee: 'NULL'
           }
         };
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        accept: '*/*',
+        'Content-Type': 'application/json',
+        'x-accesskey': accessKey
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`MX Update HTTP ${res.status}${text ? `: ${text}` : ''}`);
+    }
+    return res.json().catch(() => null);
   } else {
     throw new Error('Invalid crId: missing id');
   }
-
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      accept: '*/*',
-      'Content-Type': 'application/json',
-      'x-accesskey': accessKey
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`MX Update HTTP ${res.status}${text ? `: ${text}` : ''}`);
-  }
-
-  return res.json().catch(() => null);
-}
-
-export async function fetchMxGroupMembers(groupName: string): Promise<MxGroupMemberRow[]> {
-  const g = groupName.trim();
-  if (!g.length) return [];
-
-  const url = envString('VITE_MX_QUERY_URL', '/mxssddql/Query');
-  const pageSize = envNumber('VITE_MX_PAGE_SIZE', 500);
-
-  const body = {
-    __F__: 'V_grpmem',
-    __S__: '*',
-    __PS__: pageSize,
-    __O__: ['group_name'],
-    __W__: { group_name: g }
-  };
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      accept: '*/*',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) throw new Error(`MX GroupMembers HTTP ${res.status}`);
-  const json = (await res.json()) as MxQueryResponse;
-
-  const rowsRaw =
-    asArray((json as any)?.results) ?? asArray((json as any)?.result) ?? asArray((json as any)?.problems) ?? [];
-
-  return rowsRaw
-    .filter((r) => r && typeof r === 'object')
-    .map((r) => r as MxGroupMemberRow);
 }
