@@ -34,13 +34,105 @@ FROM     dbo.crwf INNER JOIN
                   dbo.ca_contact AS ca_contact_1 ON dbo.crwf.assignee = ca_contact_1.contact_uuid
 WHERE  (dbo.crwf.task NOT IN ('GRPSTART', 'GRPEND')) AND (dbo.crwf.status = 'PEND')
 ----------------------
-
+CREATE VIEW [dbo].[V_mxmanv_wf_chg]
+AS
+SELECT        dbo.hex(dbo.wf.group_id) AS group_id, dbo.hex(dbo.wf.assignee) AS assignee_id, ca_contact_1.last_name AS group_name, dbo.ca_contact.last_name + N' ' + ISNULL(dbo.ca_contact.first_name, N'') 
+                         AS assignee_name, dbo.wf.id AS wf_id, dbo.wf.sequence, dbo.wf.task, dbo.wf.description AS wf_description, dbo.tskty.sym AS category_name_first, dbo.wf.start_date, dbo.V_chg.description, 
+                         dbo.V_chg.last_mod_dt, dbo.V_chg.last_mod_by_name, dbo.V_chg.affected_contact_id AS customer_id, dbo.V_chg.affected_contact_name AS customer_name, dbo.V_chg.category_name, dbo.V_chg.priority, 
+                         dbo.V_chg.active, dbo.V_chg.status, dbo.V_chg.status_name, dbo.V_chg.attmnts, dbo.V_chg.wfs, dbo.V_chg.id, dbo.V_chg.ref_num, '' AS asset_name, 'CW' AS type, CAST(dbo.V_chg.description AS nvarchar(200)) 
+                         AS summary, dbo.V_chg.open_date
+FROM            dbo.wf LEFT OUTER JOIN
+                         dbo.V_chg ON dbo.wf.object_id = dbo.V_chg.id LEFT OUTER JOIN
+                         dbo.tskty ON dbo.wf.task = dbo.tskty.code LEFT OUTER JOIN
+                         dbo.ca_contact ON dbo.wf.assignee = dbo.ca_contact.contact_uuid LEFT OUTER JOIN
+                         dbo.ca_contact AS ca_contact_1 ON dbo.wf.group_id = ca_contact_1.contact_uuid
+WHERE        (dbo.wf.status = 'PEND')
+-------------------
 CREATE VIEW [dbo].[V_mxmanv_all]
 AS
-select id, ref_num,summary,cast(description as nvarchar(2000)) as description,status,status_name,open_date,category_name,category_name_first,customer_name,group_id,group_name,assignee_id,assignee_name,priority,type,last_mod_dt,last_mod_by_name,attmnts,wfs,asset_name, active,'' as  wf_id , '' as sequence
-from v_cr
+SELECT 
+    id, 
+    ref_num, 
+    summary COLLATE DATABASE_DEFAULT AS summary, 
+    CAST(description AS nvarchar(2000)) COLLATE DATABASE_DEFAULT AS description, 
+    status, 
+    status_name COLLATE DATABASE_DEFAULT AS status_name, 
+    open_date, 
+    category_name COLLATE DATABASE_DEFAULT AS category_name, 
+    category_name_first COLLATE DATABASE_DEFAULT AS category_name_first, 
+    customer_name COLLATE DATABASE_DEFAULT AS customer_name, 
+    group_id, 
+    group_name COLLATE DATABASE_DEFAULT AS group_name, 
+    assignee_id, 
+    assignee_name COLLATE DATABASE_DEFAULT AS assignee_name, 
+    priority, 
+    type COLLATE DATABASE_DEFAULT AS type, 
+    last_mod_dt, 
+    last_mod_by_name COLLATE DATABASE_DEFAULT AS last_mod_by_name, 
+    attmnts, 
+    wfs, 
+    asset_name COLLATE DATABASE_DEFAULT AS asset_name, 
+    active, 
+    '' AS wf_id, 
+    '' AS sequence
+FROM v_cr
+
 UNION
-select id, ref_num,summary,concat(cast(wf_description as nvarchar(2000)) , '    ' ,cast(description as nvarchar(1000))) as description ,status,status_name,open_date,category_name,category_name_first,customer_name,group_id,group_name,assignee_id,assignee_name,priority, type + 'W' as type,last_mod_dt,last_mod_by_name,attmnts,wfs,asset_name, active, wf_id, sequence
- from V_mxmanv_wf_cr
+
+SELECT 
+    id, 
+    ref_num, 
+    summary COLLATE DATABASE_DEFAULT, 
+    CONCAT(CAST(wf_description AS nvarchar(2000)), '    ', CAST(description AS nvarchar(1000))) COLLATE DATABASE_DEFAULT, 
+    status, 
+    status_name COLLATE DATABASE_DEFAULT, 
+    open_date, 
+    category_name COLLATE DATABASE_DEFAULT, 
+    category_name_first COLLATE DATABASE_DEFAULT, 
+    customer_name COLLATE DATABASE_DEFAULT, 
+    group_id, 
+    group_name COLLATE DATABASE_DEFAULT, 
+    assignee_id, 
+    assignee_name COLLATE DATABASE_DEFAULT, 
+    priority, 
+    type + 'W' COLLATE DATABASE_DEFAULT, 
+    last_mod_dt, 
+    last_mod_by_name COLLATE DATABASE_DEFAULT, 
+    attmnts, 
+    wfs, 
+    asset_name COLLATE DATABASE_DEFAULT, 
+    active, 
+    wf_id, 
+    sequence
+FROM V_mxmanv_wf_cr
+
+UNION
+
+SELECT 
+    id, 
+    ref_num, 
+    summary COLLATE DATABASE_DEFAULT, 
+    CONCAT(CAST(wf_description AS nvarchar(2000)), '    ', CAST(description AS nvarchar(1000))) COLLATE DATABASE_DEFAULT, 
+    status, 
+    status_name COLLATE DATABASE_DEFAULT, 
+    open_date, 
+    category_name COLLATE DATABASE_DEFAULT, 
+    category_name_first COLLATE DATABASE_DEFAULT, 
+    customer_name COLLATE DATABASE_DEFAULT, 
+    group_id, 
+    group_name COLLATE DATABASE_DEFAULT, 
+    assignee_id, 
+    assignee_name COLLATE DATABASE_DEFAULT, 
+    priority, 
+    type COLLATE DATABASE_DEFAULT, 
+    last_mod_dt, 
+    last_mod_by_name COLLATE DATABASE_DEFAULT, 
+    attmnts, 
+    wfs, 
+    asset_name COLLATE DATABASE_DEFAULT, 
+    active, 
+    wf_id, 
+    sequence
+FROM V_mxmanv_wf_chg;
 
 GO
