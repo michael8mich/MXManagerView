@@ -147,6 +147,8 @@ function problemTypeTone(value: string) {
       return 'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200';
     case 'RW':
       return 'border-fuchsia-500/25 bg-fuchsia-500/10 text-fuchsia-800 dark:text-fuchsia-200';
+    case 'CW':
+      return 'border-cyan-500/25 bg-cyan-500/10 text-cyan-800 dark:text-cyan-200';
     default:
       return 'border-slate-500/25 bg-slate-500/10 text-slate-800 dark:text-slate-200';
   }
@@ -162,6 +164,8 @@ function problemTypeChipBg(value: string) {
       return 'bg-gradient-to-br from-amber-500/20 via-white/40 to-lime-500/15 dark:from-amber-400/12 dark:via-white/5 dark:to-lime-400/10';
     case 'RW':
       return 'bg-gradient-to-br from-fuchsia-500/20 via-white/40 to-indigo-500/15 dark:from-fuchsia-400/12 dark:via-white/5 dark:to-indigo-400/10';
+    case 'CW':
+      return 'bg-gradient-to-br from-cyan-500/20 via-white/40 to-blue-500/15 dark:from-cyan-400/12 dark:via-white/5 dark:to-blue-400/10';
     default:
       return 'bg-white/60 dark:bg-white/5';
   }
@@ -213,6 +217,17 @@ function ProblemTypeIcon({ type }: { type: string }) {
       </svg>
     );
   }
+  if (type === 'CW') {
+    // CW: change workflow icon (use a wrench or similar)
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+        <g stroke="currentColor" strokeWidth="1.6" fill="none">
+          <path d="M21 19.3l-6.1-6.1a5.5 5.5 0 0 1-7.8-7.8l1.4 1.4a3.5 3.5 0 0 0 5 5l6.1 6.1a1.5 1.5 0 0 0 2.1-2.1z" />
+          <circle cx="7.5" cy="7.5" r="3.5" opacity=".3" />
+        </g>
+      </svg>
+    );
+  }
   return <span className="text-[11px] font-semibold">{type}</span>;
 }
 
@@ -228,6 +243,24 @@ function problemTypeBorder(value: string | undefined) {
     return {
       border: 'border-rose-300/80 dark:border-rose-400/25',
       hoverBorder: 'hover:border-rose-400/80 dark:hover:border-rose-400/35'
+    };
+  }
+  if (t === 'W') {
+    return {
+      border: 'border-amber-300/80 dark:border-amber-400/25',
+      hoverBorder: 'hover:border-amber-400/80 dark:hover:border-amber-400/35'
+    };
+  }
+  if (t === 'RW') {
+    return {
+      border: 'border-fuchsia-300/80 dark:border-fuchsia-400/25',
+      hoverBorder: 'hover:border-fuchsia-400/80 dark:hover:border-fuchsia-400/35'
+    };
+  }
+  if (t === 'CW') {
+    return {
+      border: 'border-cyan-300/80 dark:border-cyan-400/25',
+      hoverBorder: 'hover:border-cyan-400/80 dark:hover:border-cyan-400/35'
     };
   }
   return {
@@ -709,7 +742,9 @@ function ProblemCard({ problem, isSaving }: { problem: Problem; isSaving?: boole
                       ? t('problemType.workflow')
                       : problem.problemType === 'I'
                         ? t('problemType.incident')
-                        : problem.problemType
+                        : problem.problemType === 'CW'
+                          ? t('problemType.changeWorkflow')
+                          : problem.problemType
               }
               aria-label={
                 problem.problemType === 'RW'
@@ -720,7 +755,9 @@ function ProblemCard({ problem, isSaving }: { problem: Problem; isSaving?: boole
                       ? t('problemType.workflow')
                       : problem.problemType === 'I'
                         ? t('problemType.incident')
-                        : problem.problemType
+                        : problem.problemType === 'CW'
+                          ? t('problemType.changeWorkflow')
+                          : problem.problemType
               }
             >
               <ProblemTypeIcon type={problem.problemType} />
@@ -1194,8 +1231,23 @@ function DashboardCard({
                                     fontSize={3.5}
                                     className="fill-slate-800/90 dark:fill-slate-100/90"
                                     dominantBaseline="hanging"
+                                    direction={/^[\u0590-\u05FF]/.test(rr.r.name) ? 'rtl' : 'ltr'}
+                                    style={{
+                                      maxWidth: rr.w - 3.6 > 0 ? rr.w - 3.6 : undefined,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                    pointerEvents="all"
+                                    tabIndex={0}
+                                    aria-label={rr.r.name}
+                                    title={rr.r.name}
                                   >
-                                    {rr.r.name}
+                                    {(() => {
+                                      // Truncate name if too long for the box
+                                      const maxChars = Math.max(2, Math.floor((rr.w - 3.6) / 3.5));
+                                      return rr.r.name.length > maxChars ? rr.r.name.slice(0, maxChars - 1) + '\u2026' : rr.r.name;
+                                    })()}
                                   </text>
                                   <text
                                     x={rr.x + 1.8}
@@ -1363,6 +1415,7 @@ export default function Board({
   const visibleProblems = useMemo(() => {
     if (typeFilter === 'both') return problems;
     if (typeFilter === 'rw') return problems.filter((p) => (p.problemType || '').toUpperCase() === 'RW');
+    if (typeFilter === 'cw') return problems.filter((p) => (p.problemType || '').toUpperCase() === 'CW');
     const want = typeFilter === 'incident' ? 'I' : 'R';
     return problems.filter((p) => (p.problemType || '').toUpperCase() === want);
   }, [problems, typeFilter]);
@@ -1626,8 +1679,13 @@ export default function Board({
         if (problem && problem.problemType === 'RW' && problem.wf_id) {
           crId = { id: problem.id, wf_id: problem.wf_id, type: 'RW' };
         }
+         if (problem && problem.problemType === 'CW' && problem.wf_id) {
+          crId = { id: problem.id, wf_id: problem.wf_id, type: 'CW' };
+        }
+        
         void (async () => {
           markPending([problemId], true);
+          
           try {
             await updateMxCrAssignee({ crId, accessKey: mxAccessKey!.trim(), assigneeUserUuid });
             markPending([problemId], false);

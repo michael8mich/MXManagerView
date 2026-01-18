@@ -277,67 +277,78 @@ function normalizeCrId(value: string | number): string {
   return raw.replace(/^cr\s*[-:]/i, '').trim();
 }
 
+// Unified CR ID type for both RW and CW (no type field)
+export type MxCrId = {
+  id: string;
+  wf_id?: string | number; // Only for RW
+  type?: 'CW' | 'RW'; // Only for RW
+};
+
 export async function updateMxCrAssignee(params: {
-  crId: string | number;
+
+  crId: MxCrId | string ;
   accessKey: string;
   assigneeUserUuid: string | null;
 }): Promise<unknown> {
   const base = envString('VITE_MX_WEBAPP_PROXY_URL', '/MXWebAppProxy');
-  // Support RW (workflow) type: use cr_wf endpoint and wf_id
   let url: string;
   let payload: any;
-  let isCrWf = false;
-  // If params has a special flag or type, use cr_wf. Otherwise, default to cr.
-  // For backward compatibility, detect if crId is an object with type/wf_id
+  const { crId, accessKey, assigneeUserUuid } = params;
+  if(typeof crId !== "string") {
 
-  let crId = params.crId;
-  let wf_id: string | number | undefined = undefined;
-  let type: string | undefined = undefined;
-  if (typeof crId === 'object' && crId !== null) {
-    // Support: { id, wf_id, type }
-    wf_id = (crId as any).wf_id;
-    type = (crId as any).type;
-    crId = (crId as any).id;
-  }
-  if (type === 'RW' && wf_id) {
-    isCrWf = true;
-    url = `${base.replace(/\/+$|$/, '')}/cr_wf/${encodeURIComponent(String(wf_id))}`;
-    const assignee = params.assigneeUserUuid?.trim() ?? '';
+  const { id, wf_id, type } = crId;
+  
+  
+ 
+  if (wf_id !== undefined && wf_id !== null) {
+    // RW type (workflow)
+    let server_side_object_type = 'cr_wf';
+    if(type === "CW")
+      server_side_object_type = "wf"
+
+    url = `${base.replace(/\/+$|$/, '')}/${server_side_object_type}/${encodeURIComponent(String(wf_id))}`;
+    
+    
+    const assignee = assigneeUserUuid?.trim() ?? '';
     if (assignee && /^name:/i.test(assignee)) {
       throw new Error('MX Update requires member_uuid (got name-based assignee)');
     }
     payload = assignee
       ? {
-          cr_wf: {
+          [server_side_object_type]: {
             assignee: {
               '@id': normalizeMxUserId(assignee)
             }
           }
         }
       : {
-          cr_wf: {
+          [server_side_object_type]: {
+            assignee: 'NULL'
+          }
+        };
+  }} else if (crId) {
+
+    // CW type (no workflow)
+    url = `${base.replace(/\/+$|$/, '')}/cr/${encodeURIComponent(normalizeCrId(crId))}`;
+    const assignee = assigneeUserUuid?.trim() ?? '';
+    if (assignee && /^name:/i.test(assignee)) {
+      throw new Error('MX Update requires member_uuid (got name-based assignee)');
+    }
+    payload = assignee
+      ? {
+          cr: {
+            assignee: {
+              '@id': normalizeMxUserId(assignee)
+            }
+          }
+        }
+      : {
+          cr: {
             assignee: 'NULL'
           }
         };
   } else {
-    url = `${base.replace(/\/+$|$/, '')}/cr/${encodeURIComponent(normalizeCrId(crId))}`;
-    const assignee = params.assigneeUserUuid?.trim() ?? '';
-    if (assignee && /^name:/i.test(assignee)) {
-      throw new Error('MX Update requires member_uuid (got name-based assignee)');
-    }
-    payload = assignee
-      ? {
-          cr: {
-            assignee: {
-              '@id': normalizeMxUserId(assignee)
-            }
-          }
-        }
-      : {
-          cr: {
-            assignee: 'NULL'
-          }
-        };
+    throw new Error('Invalid crId: missing id');
   }
 
   const res = await fetch(url, {
@@ -345,7 +356,7 @@ export async function updateMxCrAssignee(params: {
     headers: {
       accept: '*/*',
       'Content-Type': 'application/json',
-      'x-accesskey': params.accessKey
+      'x-accesskey': accessKey
     },
     body: JSON.stringify(payload)
   });
@@ -355,7 +366,6 @@ export async function updateMxCrAssignee(params: {
     throw new Error(`MX Update HTTP ${res.status}${text ? `: ${text}` : ''}`);
   }
 
-  // Return the correct response shape for cr_wf or cr
   return res.json().catch(() => null);
 }
 

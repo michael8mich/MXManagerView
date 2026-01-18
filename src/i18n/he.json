@@ -24,9 +24,10 @@
     "refresh": "רענן",
     "refreshTitle": "רענון תקלות וחברי צוות",
     "typeFilterLabel": "סוג",
-    "typeFilterIncident": "אירוע",
+    "typeFilterIncident": "תקלה",
     "typeFilterProblem": "בעיה",
     "typeFilterRW": "בקשת תהליך עבודה",
+    "typeFilterCW": "שינוי תהליך עבודה",
     "typeFilterBoth": "הכל"
   },
   "lane": {
@@ -80,9 +81,10 @@
   },
   "problemType": {
     "request": "בקשה",
-    "incident": "אירוע",
+    "incident": "תקלה",
     "workflow": "זרימת עבודה",
-    "requestWorkflow": "בקשת זרימת עבודה"
+    "requestWorkflow": "בקשת זרימת עבודה",
+    "changeWorkflow": "שינוי זרימת עבודה"
   },
   "duration": {
     "y": "{{count}} שנים",
