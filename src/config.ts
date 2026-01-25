@@ -24,8 +24,16 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
     if (!res.ok) throw new Error('Failed to load config.json');
   }
   const json = await res.json();
+
+  // Always load MFLOW_BASE_URL from public config.json
+  let mflowRes = await fetch('/mxmanv/config.json');
+  let mflowJson = json;
+  if (mflowRes.ok) {
+    mflowJson = await mflowRes.json();
+  }
+
   runtimeConfig = {
-    MFLOW_BASE_URL: json.MFLOW_BASE_URL,
+    MFLOW_BASE_URL: mflowJson.MFLOW_BASE_URL,
     MX_USE_REMOTE_API: json.MX_USE_REMOTE_API,
     MX_QUERY_URL: json.MX_QUERY_URL,
     MX_WEBAPP_PROXY_URL: json.MX_WEBAPP_PROXY_URL,

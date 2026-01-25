@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { updateMxCrAssignee } from '../api/mxQuery';
+import { runtimeConfig, loadRuntimeConfig } from '../config';
 import type { Lane, Model, OwnerRef, Problem } from '../model/types';
 import { isMoveAllowed } from '../model/rules';
 import { showServerUpdateBanner } from '../ServerUpdateBanner';
@@ -222,7 +223,7 @@ function ProblemTypeIcon({ type }: { type: string }) {
     return (
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
         <g stroke="currentColor" strokeWidth="1.6" fill="none">
-          <path d="M21 19.3l-6.1-6.1a5.5 5.5 0 0 1-7.8-7.8l1.4 1.4a3.5 3.5 0 0 0 5 5l6.1 6.1a1.5 1.5 0 0 0 2.1-2.1z" />
+          <path d="M21 19.3l-6.1-6.1a5.5 5.5 0 0 1-7.8-7.8l9-9a3.5 3.5 0 0 1 5 5l-9.2 9.2a1.5 1.5 0 0 1-2.1-2.1z" />
           <circle cx="7.5" cy="7.5" r="3.5" opacity=".3" />
         </g>
       </svg>
@@ -560,7 +561,8 @@ function ProblemCard({ problem, isSaving }: { problem: Problem; isSaving?: boole
     }
     if (!path) return null;
 
-    const base = (import.meta as any).env?.VITE_MFLOW_BASE_URL || 'http://mx/mFlow';
+    // Use runtimeConfig for MFLOW_BASE_URL
+    const base = runtimeConfig?.MFLOW_BASE_URL || 'http://mx/mFlow';
     return `${String(base).replace(/\/$/, '')}/#/cr/${path}/${recordNumber}`;
   }
 
@@ -1145,7 +1147,6 @@ function DashboardCard({
                           <span
                             className={[
                               'h-2 w-2 shrink-0 rounded-full',
-                              // map stroke palette to a matching bg for the legend dot
                               idx % piePalette.length === 0
                                 ? 'bg-sky-500/70 dark:bg-sky-400/45'
                                 : idx % piePalette.length === 1
