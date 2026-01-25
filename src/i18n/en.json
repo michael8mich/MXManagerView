@@ -30,7 +30,13 @@
     "typeFilterRW": "Request Workflow",
     "typeFilterCW": "Change Workflow",
     "typeFilterBoth": "Both",
-    "typeFilterAll": "All"
+    "typeFilterAll": "All",
+    "typeFilter_I": "Incident",
+    "typeFilter_P": "Problem",
+    "typeFilter_PW": "Problem Workflow",
+    "typeFilter_R": "Request",
+    "typeFilter_RW": "Request Workflow",
+    "typeFilter_CW": "Change Workflow"
   },
   "lane": {
     "teamQueueTitle": "{{team}} Queue",

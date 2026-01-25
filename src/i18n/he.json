@@ -29,7 +29,13 @@
     "typeFilterRW": "בקשת תהליך עבודה",
     "typeFilterCW": "שינוי תהליך עבודה",
     "typeFilterBoth": "הכל",
-    "typeFilterAll": "הכל"
+    "typeFilterAll": "הכל",
+    "typeFilter_I": "תקלה",
+    "typeFilter_P": "בעיה",
+    "typeFilter_PW": "בעיה בתהליך עבודה",
+    "typeFilter_R": "בקשה",
+    "typeFilter_RW": "בקשת תהליך עבודה",
+    "typeFilter_CW": "שינוי תהליך עבודה"
   },
   "lane": {
     "teamQueueTitle": "תור {{team}}",

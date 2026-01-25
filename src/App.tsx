@@ -57,6 +57,16 @@ function ProblemTypeIcon({ type }: { type: string }) {
   }
   return null;
 }
+// Helper to get translated label for problem type
+function getProblemTypeLabel(type: string, t: any) {
+  if (type === 'both') return t('app.typeFilterAll');
+  // Try translation key: app.typeFilter_<TYPE>
+  const key = `app.typeFilter_${type}`;
+  const translation = t(key);
+  // If translation key returns the key itself, fallback to type
+  if (translation === key) return type;
+  return translation;
+}
 import { useTranslation } from 'react-i18next';
 import Board from './board/Board';
 import { ServerUpdateBanner } from './ServerUpdateBanner';
@@ -186,10 +196,19 @@ export default function App() {
     window.localStorage.getItem('mxmanv.group_uuid')
   );
 
-  const [typeFilter, setTypeFilter] = useState<'both' | 'incident' | 'problem' | 'rw' | 'cw'>(() => {
+  const [typeFilter, setTypeFilter] = useState<string>(() => {
     const saved = window.localStorage.getItem('mxmanv.typeFilter');
-    return saved === 'incident' || saved === 'problem' || saved === 'both' || saved === 'rw' || saved === 'cw' ? saved : 'both';
+    return saved || 'both';
   });
+
+  // Dynamically get all unique problem types from model
+  const problemTypes = useMemo(() => {
+    const types = new Set<string>();
+    model.problems.forEach((p) => {
+      if (p.problemType) types.add(p.problemType.toUpperCase());
+    });
+    return Array.from(types).sort();
+  }, [model]);
 
   const [configLoaded, setConfigLoaded] = useState(false);
 
@@ -602,12 +621,8 @@ export default function App() {
                     <div className="relative w-max min-w-full">
                       <Listbox.Button className="flex w-max min-w-full items-center gap-1 bg-transparent text-xs font-semibold text-slate-900 outline-none dark:text-slate-100 px-2 py-1 rounded cursor-pointer border border-slate-200/70 dark:border-white/10 whitespace-nowrap">
                         <ProblemTypeIcon type={typeFilter} />
-                        <span className="whitespace-nowrap min-w-0">
-                          {typeFilter === 'incident' && t('app.typeFilterIncident')}
-                          {typeFilter === 'problem' && t('app.typeFilterProblem')}
-                          {typeFilter === 'rw' && t('app.typeFilterRW')}
-                          {typeFilter === 'cw' && t('app.typeFilterCW')}
-                          {typeFilter === 'both' && t('app.typeFilterAll')}
+                        <span className="whitespace-nowrap min-w-0 font-bold text-slate-900 dark:text-slate-100">
+                          {getProblemTypeLabel(typeFilter, t)}
                         </span>
                         <svg className="ml-2 h-3 w-3 text-slate-400 flex-shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                           <path d="M7 7l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -615,21 +630,14 @@ export default function App() {
                         </svg>
                       </Listbox.Button>
                       <Listbox.Options className="absolute z-10 mt-1 w-max min-w-full rounded bg-white dark:bg-slate-900 shadow-lg ring-1 ring-black/10 dark:ring-white/10 focus:outline-none text-xs">
-                        <Listbox.Option value="incident" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
-                          <ProblemTypeIcon type="incident" /> {t('app.typeFilterIncident')}
-                        </Listbox.Option>
-                        <Listbox.Option value="problem" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
-                          <ProblemTypeIcon type="problem" /> {t('app.typeFilterProblem')}
-                        </Listbox.Option>
-                        <Listbox.Option value="rw" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
-                          <ProblemTypeIcon type="rw" /> {t('app.typeFilterRW')}
-                        </Listbox.Option>
-                        <Listbox.Option value="cw" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
-                          <ProblemTypeIcon type="cw" /> {t('app.typeFilterCW')}
-                        </Listbox.Option>
                         <Listbox.Option value="both" className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
-                          <ProblemTypeIcon type="both" /> {t('app.typeFilterAll')}
+                          <ProblemTypeIcon type="both" /> {getProblemTypeLabel('both', t)}
                         </Listbox.Option>
+                        {problemTypes.map((type) => (
+                          <Listbox.Option key={type} value={type} className={({ active }) => `cursor-pointer select-none px-3 py-2 flex items-center gap-2 whitespace-nowrap ${active ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
+                            <ProblemTypeIcon type={type} /> {getProblemTypeLabel(type, t)}
+                          </Listbox.Option>
+                        ))}
                       </Listbox.Options>
                     </div>
                   )}

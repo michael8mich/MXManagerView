@@ -1375,7 +1375,7 @@ export default function Board({
   serverUpdatesEnabled
 }: {
   model: Model;
-  typeFilter: 'both' | 'incident' | 'problem' | 'rw' | 'cw';
+  typeFilter: 'both' | string; // allow any string for dynamic types
   mxAccessKey?: string | null;
   serverUpdatesEnabled?: boolean;
 }) {
@@ -1414,10 +1414,10 @@ export default function Board({
 
   const visibleProblems = useMemo(() => {
     if (typeFilter === 'both') return problems;
-    if (typeFilter === 'rw') return problems.filter((p) => (p.problemType || '').toUpperCase() === 'RW');
-    if (typeFilter === 'cw') return problems.filter((p) => (p.problemType || '').toUpperCase() === 'CW');
-    const want = typeFilter === 'incident' ? 'I' : 'R';
-    return problems.filter((p) => (p.problemType || '').toUpperCase() === want);
+    // Filter by exact match, case-insensitive, for any type
+    return problems.filter(
+      (p) => (p.problemType || '').toUpperCase() === typeFilter.toUpperCase()
+    );
   }, [problems, typeFilter]);
 
   const sensors = useSensors(
