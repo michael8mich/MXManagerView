@@ -1,3 +1,5 @@
+import { runtimeConfig, loadRuntimeConfig } from '../config';
+
 export type MxQueryResponse = {
   count?: number;
   problems?: unknown;
@@ -31,18 +33,6 @@ export type MxGroupMemberRow = {
 
 export type MxRemoteMode = 'off' | 'problems' | 'all';
 
-function envBool(key: string, fallback: boolean): boolean {
-  const raw = (import.meta as any).env?.[key];
-  if (raw === true) return true;
-  if (raw === false) return false;
-  if (typeof raw === 'string') {
-    const v = raw.trim().toLowerCase();
-    if (['1', 'true', 'yes', 'on'].includes(v)) return true;
-    if (['0', 'false', 'no', 'off'].includes(v)) return false;
-  }
-  return fallback;
-}
-
 // Type for login user info returned by fetchMxLoginUserInfo
 export type MxLoginUserInfo = {
   userid: string;
@@ -53,17 +43,6 @@ export type MxLoginUserInfo = {
   memberName?: string;
   accessKey?: string;
 };
-
-function envString(key: string, fallback: string): string {
-  const v = (import.meta as any).env?.[key];
-  return typeof v === 'string' && v.trim().length ? v.trim() : fallback;
-}
-
-function envNumber(key: string, fallback: number): number {
-  const raw = (import.meta as any).env?.[key];
-  const n = typeof raw === 'string' ? Number(raw) : typeof raw === 'number' ? raw : NaN;
-  return Number.isFinite(n) ? n : fallback;
-}
 
 function asArray(value: unknown): unknown[] | null {
   return Array.isArray(value) ? value : null;
@@ -105,20 +84,17 @@ export function mxUseRemoteApi(): boolean {
 }
 
 export function mxRemoteMode(): MxRemoteMode {
-  const raw = (import.meta as any).env?.VITE_MX_USE_REMOTE_API;
-  if (raw === true) return 'problems';
-  if (typeof raw === 'string') {
-    const v = raw.trim().toLowerCase();
-    if (v === 'all') return 'all';
-    if (v === 'problems' || v === '1' || v === 'true' || v === 'yes' || v === 'on') return 'problems';
-    return 'off';
-  }
+  if (!runtimeConfig) throw new Error('Runtime config not loaded');
+  const v = runtimeConfig.MX_USE_REMOTE_API.trim().toLowerCase();
+  if (v === 'all') return 'all';
+  if (v === 'problems' || v === '1' || v === 'true' || v === 'yes' || v === 'on') return 'problems';
   return 'off';
 }
 
 export async function fetchMxProblems(params: { groupName?: string }): Promise<any[]> {
-  const url = envString('VITE_MX_QUERY_URL', '/mxssddql/Query');
-  const pageSize = envNumber('VITE_MX_PAGE_SIZE', 500);
+  if (!runtimeConfig) await loadRuntimeConfig();
+  const url = runtimeConfig!.MX_QUERY_URL;
+  const pageSize = runtimeConfig!.MX_PAGE_SIZE;
 
   const where: Record<string, string> = { active: '1' };
   if (params.groupName && params.groupName.trim().length) where.group_name = params.groupName;
@@ -146,10 +122,10 @@ export async function fetchMxProblems(params: { groupName?: string }): Promise<a
 
   // Dev-only helper: pause exactly when server data arrives.
   // Enable with: VITE_MX_DEBUG_ON_FETCH=true
-  if (envBool('VITE_MX_DEBUG_ON_FETCH', false)) {
-    // eslint-disable-next-line no-debugger
-    debugger;
-  }
+  // if (runtimeConfig && (runtimeConfig as any).MX_DEBUG_ON_FETCH) {
+  //   // eslint-disable-next-line no-debugger
+  //   debugger;
+  // }
 
   // Common shapes: { problems: [...] } or { results: [...] } or { result: [...] }
   const problems = asArray((json as any)?.problems);
@@ -166,8 +142,9 @@ export async function fetchMxProblems(params: { groupName?: string }): Promise<a
 }
 
 export async function fetchMxUsername(): Promise<string | null> {
-  const queryUrl = envString('VITE_MX_QUERY_URL', '/mxssddql/Query');
-  const url = `${queryUrl.replace(/\/+$/, '')}/username`;
+  if (!runtimeConfig) await loadRuntimeConfig();
+  const queryUrl = runtimeConfig!.MX_QUERY_URL;
+  const url = `${queryUrl.replace(/\/\/+$/, '')}/username`;
 
   const res = await fetch(url, {
     method: 'POST',
@@ -195,11 +172,12 @@ export async function fetchMxUsername(): Promise<string | null> {
 }
 
 export async function fetchMxLoginUserInfo(userid: string): Promise<MxLoginUserInfo | null> {
+  if (!runtimeConfig) await loadRuntimeConfig();
+  const url = runtimeConfig!.MX_QUERY_URL;
+  const pageSize = runtimeConfig!.MX_PAGE_SIZE;
+
   const user = userid.trim();
   if (!user.length) return null;
-
-  const url = envString('VITE_MX_QUERY_URL', '/mxssddql/Query');
-  const pageSize = envNumber('VITE_MX_PAGE_SIZE', 500);
 
   const body = {
     __F__: 'V_mxmanagerview',
@@ -289,7 +267,8 @@ export async function updateMxCrAssignee(params: {
   accessKey: string;
   assigneeUserUuid: string | null;
 }): Promise<unknown> {
-  const base = envString('VITE_MX_WEBAPP_PROXY_URL', '/MXWebAppProxy');
+  if (!runtimeConfig) await loadRuntimeConfig();
+  const base = runtimeConfig!.MX_WEBAPP_PROXY_URL;
   const { crId, accessKey, assigneeUserUuid } = params;
 
   if (typeof crId !== 'string') {

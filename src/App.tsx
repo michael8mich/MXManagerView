@@ -69,7 +69,7 @@ import {
   type PublicDataJson,
   type PublicGroup
 } from './model/fromPublicData';
-import i18n, { isRtl, type SupportedLang } from './i18n';
+import i18n, { type SupportedLang } from './i18n';
 import {
   fetchMxLoginUserInfo,
   fetchMxProblems,
@@ -78,6 +78,7 @@ import {
   mxUseRemoteApi,
   type MxLoginUserInfo
 } from './api/mxQuery';
+import { loadRuntimeConfig } from './config';
 
 function PlaneScreensaver({ visible }: { visible: boolean }) {
   if (!visible) return null;
@@ -154,6 +155,17 @@ export default function App() {
     return saved === 'dark' ? 'dark' : 'light';
   });
 
+  // Sync dark class on <html> with theme
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    window.localStorage.setItem('mxmanv.theme', theme);
+  }, [theme]);
+
   const [lang, setLang] = useState<SupportedLang>(() => {
     const saved = window.localStorage.getItem('mxmanv.lang') as SupportedLang | null;
     return saved === 'he' || saved === 'en' ? saved : (i18n.language as SupportedLang) || 'en';
@@ -179,28 +191,14 @@ export default function App() {
     return saved === 'incident' || saved === 'problem' || saved === 'both' || saved === 'rw' || saved === 'cw' ? saved : 'both';
   });
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
-    window.localStorage.setItem('mxmanv.theme', theme);
-  }, [theme]);
-
-  useEffect(() => {
-    void i18n.changeLanguage(lang);
-    window.localStorage.setItem('mxmanv.lang', lang);
-    const root = document.documentElement;
-    root.lang = lang;
-    root.dir = isRtl(lang) ? 'rtl' : 'ltr';
-  }, [lang]);
-
-  useEffect(() => {
-    window.localStorage.setItem('mxmanv.typeFilter', typeFilter);
-  }, [typeFilter]);
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      await loadRuntimeConfig();
+      if (!cancelled) setConfigLoaded(true);
+
       try {
         // Fetch username + loginUserInfo (best-effort).
         let userid: string | null = null;
@@ -470,6 +468,14 @@ export default function App() {
       setRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    loadRuntimeConfig(); // Ensure config is loaded at startup
+  }, []);
+
+  if (!configLoaded) {
+    return <div style={{textAlign:'center',marginTop:'20vh'}}>Loading configuration...</div>;
+  }
 
   return (
     <div className="min-h-screen">

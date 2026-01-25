@@ -1,0 +1,7 @@
+{
+  "MFLOW_BASE_URL": "http://mx/mFlow",
+  "MX_USE_REMOTE_API": "all",
+  "MX_QUERY_URL": "http://mx/mxssddql/Query",
+  "MX_WEBAPP_PROXY_URL": "http://mx/MXWebAppProxy",
+  "MX_PAGE_SIZE": 1000
+}
